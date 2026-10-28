@@ -10,6 +10,7 @@
     "dev:phone": "next dev --experimental-https -H 0.0.0.0",
     "build": "next build",
     "start": "next start",
+    "test": "node scripts/check-wav.mjs",
     "smoke:spark": "node --env-file-if-exists=.env --env-file-if-exists=.env.local scripts/smoke/spark.mjs",
     "smoke:manual": "node --env-file-if-exists=.env --env-file-if-exists=.env.local scripts/smoke/manual.mjs",
     "smoke:sam": "node --env-file-if-exists=.env --env-file-if-exists=.env.local scripts/smoke/sam.mjs",

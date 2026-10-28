@@ -52,6 +52,8 @@ body {
 .stage {
   position: relative;
   aspect-ratio: 3 / 4;
+  max-height: 46dvh;
+  width: 100%;
   background: #a39e93;
   border: 2px solid var(--ink);
   border-radius: 14px;
@@ -333,6 +335,73 @@ a.secondary {
 .sticky {
   position: sticky;
   bottom: 12px;
+}
+
+.progress {
+  display: flex;
+  height: 10px;
+  border: 2px solid var(--ink);
+  border-radius: 6px;
+  overflow: hidden;
+  background: #fff;
+}
+
+.progress span {
+  background: var(--ink);
+}
+
+.step-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.step-count {
+  font-family: var(--font-mono), monospace;
+  font-size: 12px;
+  color: var(--pencil);
+}
+
+.instruction {
+  margin: 0;
+  font-family: var(--font-serif), serif;
+  font-weight: 600;
+  font-size: 24px;
+  line-height: 1.15;
+}
+
+.targets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+button.part {
+  min-height: 36px;
+  cursor: pointer;
+  color: var(--ink);
+}
+
+button.part[aria-pressed="true"] {
+  background: var(--highlighter);
+}
+
+.mic {
+  flex: 0 0 56px;
+}
+
+.mic[aria-pressed="true"] {
+  background: #ffa8a0;
+}
+
+label.tip {
+  text-decoration: underline;
+  cursor: pointer;
+  align-self: center;
+}
+
+a.tip {
+  align-self: center;
 }
 
 @keyframes fade-in {

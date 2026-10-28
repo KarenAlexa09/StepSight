@@ -3,14 +3,18 @@
 import Link from "next/link";
 import { useEffect, useRef, useState, type CSSProperties, type FormEvent } from "react";
 import { maskTransform, toShot, type Shot } from "../lib/image";
+import { MANUAL_KEY, type Manual } from "../lib/manual";
 import type { Match } from "../lib/sam";
+import { recordingToWav } from "../lib/wav";
 
+const STEP_KEY = "stepsight.step";
 const SAMPLE_WIDTH = 32;
 const SAMPLE_HEIGHT = 24;
 // shortcut: thresholds set by eye; recalibrate on the demo phone and lighting.
 const MOVED = 22;
 const STEADY = 6;
 const STEADY_TICKS = 4;
+const MAX_RECORDING_MS = 4000;
 
 const PARTICLES: [number, number, string][] = [
   [-16, -12, "#E4FF3A"],
@@ -24,6 +28,7 @@ const PARTICLES: [number, number, string][] = [
 ];
 
 type Snapshot = Shot & { matches: Match[]; key: number; reference: Uint8ClampedArray | null };
+type Command = "next" | "back" | "find" | "repeat";
 
 function difference(a: Uint8ClampedArray, b: Uint8ClampedArray) {
   let sum = 0;
@@ -31,9 +36,22 @@ function difference(a: Uint8ClampedArray, b: Uint8ClampedArray) {
   return sum / (a.length / 4);
 }
 
+function toCommand(transcript: string): Command | null {
+  const t = transcript.toLowerCase();
+  if (/\b(next|done|ready|finished)\b/.test(t)) return "next";
+  if (/\b(back|previous)\b/.test(t)) return "back";
+  if (/\b(where|find|show|which)\b/.test(t)) return "find";
+  if (/\b(repeat|again|what)\b/.test(t)) return "repeat";
+  return null;
+}
+
+const partPrompt = (color: string) => `${color.trim().toLowerCase()} piece`;
+
 export default function Home() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const photoRef = useRef<HTMLImageElement>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const recorder = useRef<MediaRecorder | null>(null);
   const sampler = useRef<CanvasRenderingContext2D | null>(null);
   const lastSample = useRef<Uint8ClampedArray | null>(null);
   const steadyTicks = useRef(0);
@@ -46,8 +64,26 @@ export default function Home() {
   const [moving, setMoving] = useState(false);
   const [status, setStatus] = useState("Point the camera at your parts");
   const [live, setLive] = useState(false);
+  const [manual, setManual] = useState<Manual | null>(null);
+  const [stepIndex, setStepIndex] = useState(0);
+  const [muted, setMuted] = useState(false);
+  const [listening, setListening] = useState(false);
+
+  const step = manual?.steps[stepIndex];
 
   useEffect(() => {
+    try {
+      const saved = localStorage.getItem(MANUAL_KEY);
+      if (saved) {
+        const m: Manual = JSON.parse(saved);
+        const i = Math.min(Number(localStorage.getItem(STEP_KEY)) || 0, m.steps.length - 1);
+        setManual(m);
+        setStepIndex(i);
+        const color = m.steps[i]?.parts[0]?.color;
+        if (color) setPrompt(partPrompt(color));
+        setStatus(`Step ${i + 1} of ${m.steps.length}`);
+      }
+    } catch {}
     const part = new URLSearchParams(window.location.search).get("find");
     if (part) setPrompt(part.slice(0, 80));
   }, []);
@@ -67,6 +103,21 @@ export default function Home() {
       .catch(() => setCameraError(true));
     return () => stream?.getTracks().forEach((t) => t.stop());
   }, []);
+
+  async function say(text: string) {
+    if (muted) return;
+    try {
+      const res = await fetch("/api/speak", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text }),
+      });
+      if (!res.ok) return;
+      audioRef.current?.pause();
+      audioRef.current = new Audio(URL.createObjectURL(await res.blob()));
+      await audioRef.current.play();
+    } catch {}
+  }
 
   function sample() {
     const video = videoRef.current;
@@ -90,7 +141,7 @@ export default function Home() {
     return toShot(source, width, height);
   }
 
-  async function find() {
+  async function find(target = prompt) {
     if (busy.current) return;
     setSnapshot(null);
     const shot = capture();
@@ -102,28 +153,89 @@ export default function Home() {
     busy.current = true;
     setSearching(true);
     setMoving(false);
-    setStatus(`Looking for ${prompt}…`);
+    setStatus(`Looking for ${target}…`);
     try {
       const res = await fetch("/api/segment", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ image: shot.image, prompt }),
+        body: JSON.stringify({ image: shot.image, prompt: target }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
       const seconds = (data.ms / 1000).toFixed(1);
       if (data.matches.length === 0) {
         setStatus(`No match · ${seconds} s`);
+        if (manual) say(`I can't see a ${target} yet. Try moving closer.`);
         return;
       }
       setSnapshot({ ...shot, matches: data.matches, key: Date.now(), reference });
       setStatus(`Found ${data.matches.length > 1 ? data.matches.length : "it"} · ${seconds} s`);
+      if (manual) say("There it is. Grab this one.");
     } catch (error) {
       setLive(false);
       setStatus(error instanceof Error && error.message ? error.message : "Something went wrong");
     } finally {
       busy.current = false;
       setSearching(false);
+    }
+  }
+
+  function goTo(index: number) {
+    if (!manual) return;
+    const i = Math.max(0, Math.min(index, manual.steps.length - 1));
+    const next = manual.steps[i];
+    setStepIndex(i);
+    setSnapshot(null);
+    setPrompt(partPrompt(next.parts[0]?.color ?? "red"));
+    setStatus(`Step ${i + 1} of ${manual.steps.length}`);
+    try {
+      localStorage.setItem(STEP_KEY, String(i));
+    } catch {}
+    say(next.instruction);
+  }
+
+  function run(command: Command) {
+    if (command === "next") goTo(stepIndex + 1);
+    if (command === "back") goTo(stepIndex - 1);
+    if (command === "find") find();
+    if (command === "repeat" && step) say(step.instruction);
+  }
+
+  async function listen() {
+    if (recorder.current?.state === "recording") {
+      recorder.current.stop();
+      return;
+    }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const chunks: Blob[] = [];
+      const rec = new MediaRecorder(stream);
+      recorder.current = rec;
+      rec.ondataavailable = (e) => chunks.push(e.data);
+      rec.onstop = async () => {
+        stream.getTracks().forEach((t) => t.stop());
+        setListening(false);
+        setStatus("Thinking…");
+        try {
+          const form = new FormData();
+          form.append("audio", await recordingToWav(new Blob(chunks, { type: rec.mimeType })), "command.wav");
+          const res = await fetch("/api/transcribe", { method: "POST", body: form });
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.error);
+          const command = toCommand(data.transcript);
+          setStatus(data.transcript ? `Heard "${data.transcript}"` : "Didn't catch that");
+          if (command) run(command);
+          else say('Try "next", "back", "where is it" or "repeat".');
+        } catch (error) {
+          setStatus(error instanceof Error && error.message ? error.message : "Couldn't hear that");
+        }
+      };
+      rec.start();
+      setListening(true);
+      setStatus("Listening…");
+      setTimeout(() => rec.state === "recording" && rec.stop(), MAX_RECORDING_MS);
+    } catch {
+      setStatus("Allow the microphone to talk to Timber");
     }
   }
 
@@ -161,13 +273,20 @@ export default function Home() {
     setLive(false);
     setSnapshot(null);
     setPhoto(URL.createObjectURL(file));
-    setStatus("Photo loaded. Name a part and tap Find");
+    setStatus(manual ? "Photo loaded. Tap Show me" : "Photo loaded. Name a part and tap Find");
   }
 
   function onSubmit(event: FormEvent) {
     event.preventDefault();
     find();
   }
+
+  const photoInput = <input type="file" accept="image/*" onChange={(e) => onPhoto(e.target.files?.[0])} />;
+  const liveButton = (
+    <button type="button" className="secondary" aria-pressed={live} onClick={() => setLive((v) => !v)} disabled={!!photo}>
+      {live ? "Stop" : "Live"}
+    </button>
+  );
 
   return (
     <main className="screen">
@@ -179,6 +298,12 @@ export default function Home() {
           {status}
         </span>
       </header>
+
+      {manual && step && (
+        <span className="progress" aria-hidden="true">
+          <span style={{ width: `${((stepIndex + 1) / manual.steps.length) * 100}%` }} />
+        </span>
+      )}
 
       <div className={`stage${snapshot ? " frozen" : ""}`}>
         {photo ? (
@@ -197,31 +322,94 @@ export default function Home() {
         {cameraError && !photo && <p className="hint">No camera here. Upload a photo instead.</p>}
       </div>
 
-      <form className="controls" onSubmit={onSubmit}>
-        <label className="field">
-          <span>Part to find</span>
-          <input value={prompt} onChange={(e) => setPrompt(e.target.value)} maxLength={80} required />
-        </label>
-        <div className="row">
-          <button type="submit" className="primary">
-            Find
-          </button>
-          <button
-            type="button"
-            className="secondary"
-            aria-pressed={live}
-            onClick={() => setLive((v) => !v)}
-            disabled={!!photo}
-          >
-            {live ? "Stop" : "Live"}
-          </button>
-          <label className="secondary upload">
-            Photo
-            <input type="file" accept="image/*" onChange={(e) => onPhoto(e.target.files?.[0])} />
+      {manual && step ? (
+        <section className="controls">
+          <div className="step-card">
+            <span className="step-count">
+              Step {stepIndex + 1} / {manual.steps.length} · p. {step.page}
+            </span>
+            <h1 className="instruction">{step.instruction}</h1>
+            <div className="targets">
+              {step.parts.map((p, i) => {
+                const target = partPrompt(p.color);
+                return (
+                  <button
+                    key={i}
+                    type="button"
+                    className="part"
+                    aria-pressed={prompt === target}
+                    onClick={() => {
+                      setPrompt(target);
+                      find(target);
+                    }}
+                  >
+                    {p.quantity}× {p.color} {p.name}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+          <div className="row">
+            <button
+              type="button"
+              className="secondary mic"
+              aria-label={listening ? "Stop listening" : "Talk to Timber"}
+              aria-pressed={listening}
+              onClick={listen}
+            >
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <rect x="9" y="3" width="6" height="11" rx="3" />
+                <path d="M5 11a7 7 0 0 0 14 0M12 18v3" />
+              </svg>
+            </button>
+            <button type="button" className="primary" onClick={() => find()}>
+              Show me
+            </button>
+            {liveButton}
+          </div>
+          <div className="row">
+            <button type="button" className="secondary" onClick={() => goTo(stepIndex - 1)} disabled={stepIndex === 0}>
+              ← Back
+            </button>
+            <button type="button" className="secondary" aria-pressed={!muted} onClick={() => setMuted((m) => !m)}>
+              {muted ? "Sound off" : "Sound on"}
+            </button>
+            <button
+              type="button"
+              className="secondary"
+              onClick={() => goTo(stepIndex + 1)}
+              disabled={stepIndex === manual.steps.length - 1}
+            >
+              Next →
+            </button>
+          </div>
+          <label className="tip upload">
+            Use a photo instead
+            {photoInput}
           </label>
-        </div>
-        {live && <p className="tip">Hold the phone still for a second to search.</p>}
-      </form>
+        </section>
+      ) : (
+        <form className="controls" onSubmit={onSubmit}>
+          <label className="field">
+            <span>Part to find</span>
+            <input value={prompt} onChange={(e) => setPrompt(e.target.value)} maxLength={80} required />
+          </label>
+          <div className="row">
+            <button type="submit" className="primary">
+              Find
+            </button>
+            {liveButton}
+            <label className="secondary upload">
+              Photo
+              {photoInput}
+            </label>
+          </div>
+          <Link className="tip" href="/manual">
+            Add a manual for step-by-step help
+          </Link>
+        </form>
+      )}
+      {live && <p className="tip">Hold the phone still for a second to search.</p>}
     </main>
   );
 }
