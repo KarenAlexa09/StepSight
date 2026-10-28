@@ -2,6 +2,17 @@
 
 A camera guide that highlights the exact part, follows the real manual and checks every step before you move on.
 
+## Run the app
+
+```bash
+npm install
+npm run dev
+```
+
+Open http://localhost:3000, name a part ("red piece") and tap **Find**, or **Live** to keep looking. **Photo** works without a camera.
+
+On a phone (same Wi-Fi): `npm run dev:phone`, then open `https://<your-computer-ip>:3000` and accept the certificate warning. Browsers only allow the camera over HTTPS.
+
 ## Smoke tests
 
 Quick checks that each Meta model works with our inputs. Node 22.9+ and no dependencies.
