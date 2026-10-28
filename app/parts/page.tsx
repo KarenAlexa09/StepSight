@@ -63,7 +63,7 @@ export default function PartsPage() {
 
   if (!manual) {
     return (
-      <main className="screen">
+      <main className="screen paper">
         <h1 className="title">Add a manual first</h1>
         <Link className="primary" href="/manual">
           Add a manual
@@ -73,10 +73,10 @@ export default function PartsPage() {
   }
 
   return (
-    <main className="screen">
+    <main className="screen paper">
       <header className="top">
-        <Link href="/manual" className="brand">
-          StepSight
+        <Link href="/" className="round" aria-label="Home">
+          ←
         </Link>
         <span className="chip" role="status">
           {shot ? `${checked}/${needed.length} colors checked` : "Parts check"}
