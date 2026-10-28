@@ -2,7 +2,9 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState, type FormEvent } from "react";
-import { MANUAL_KEY, type Manual } from "../../lib/manual";
+import Timber from "../../components/Timber";
+import type { Manual } from "../../lib/manual";
+import { clearManual, clearReplay, freshProgress, loadManual, saveManual, saveProgress } from "../../lib/progress";
 
 const POLL_MS = 3000;
 const GIVE_UP_MS = 8 * 60 * 1000;
@@ -18,13 +20,11 @@ export default function ManualPage() {
   const cancelled = useRef(false);
 
   useEffect(() => {
-    try {
-      const saved = localStorage.getItem(MANUAL_KEY);
-      if (saved) {
-        setManual(JSON.parse(saved));
-        setPhase("done");
-      }
-    } catch {}
+    const saved = loadManual();
+    if (saved) {
+      setManual(saved);
+      setPhase("done");
+    }
     return () => {
       cancelled.current = true;
     };
@@ -55,9 +55,9 @@ export default function ManualPage() {
         if (data.status === "done") {
           setManual(data.manual);
           setPhase("done");
-          try {
-            localStorage.setItem(MANUAL_KEY, JSON.stringify(data.manual));
-          } catch {}
+          saveManual(data.manual);
+          saveProgress(freshProgress());
+          clearReplay();
           return;
         }
       }
@@ -69,27 +69,29 @@ export default function ManualPage() {
   }
 
   function startOver() {
-    try {
-      localStorage.removeItem(MANUAL_KEY);
-    } catch {}
+    clearManual();
     setManual(null);
     setPhase("idle");
   }
 
-  const first = manual?.steps[0]?.parts[0];
 
   return (
-    <main className="screen">
+    <main className="screen paper">
       <header className="top">
-        <Link href="/" className="brand">
-          StepSight
+        <Link href="/" className="round" aria-label="Home">
+          ←
         </Link>
-        <span className="chip">{phase === "done" ? "Manual ready" : "Add a manual"}</span>
+        <span className="chip">{phase === "done" ? "Manual ready" : "New project"}</span>
       </header>
 
       {phase !== "done" && (
         <form className="controls" onSubmit={read}>
-          <h1 className="title">What are we building today?</h1>
+          <div className="hero">
+            <h1 className="title big">
+              Paste the <mark>manual</mark>
+            </h1>
+            <Timber size={96} className={phase === "reading" ? "bob" : ""} />
+          </div>
           <label className="field">
             <span>Link to the manual&apos;s PDF</span>
             <input
@@ -121,6 +123,7 @@ export default function ManualPage() {
 
       {phase === "done" && manual && (
         <>
+          <p className="hand">Manual read! Here&apos;s the plan:</p>
           <h1 className="title">{manual.title}</h1>
           <p className="tip">
             {manual.steps.length} steps · {new Set(manual.steps.map((s) => s.page)).size} pages
@@ -150,7 +153,7 @@ export default function ManualPage() {
             <Link className="secondary" href="/parts">
               Check parts
             </Link>
-            <Link className="primary" href={first ? `/?find=${encodeURIComponent(`${first.color} piece`)}` : "/"}>
+            <Link className="primary" href="/build">
               Start building
             </Link>
           </div>

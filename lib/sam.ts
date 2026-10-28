@@ -1,8 +1,16 @@
-import { decodeMaskToSVGPath, parseImageStream, recordsOfKind, type ResponsesEvent } from "@meta-sam/parser";
+import {
+  buildObjectPrompt,
+  decodeMaskToSVGPath,
+  parseImageStream,
+  recordsOfKind,
+  type ResponsesEvent,
+} from "@meta-sam/parser";
+
+export type Box = { left: number; top: number; right: number; bottom: number };
 
 export type Match = {
   id: string;
-  bounds: { left: number; top: number; right: number; bottom: number };
+  bounds: Box;
   size: [width: number, height: number];
   path: string;
 };
@@ -53,4 +61,9 @@ export async function segment(image: string, prompt: string): Promise<Match[]> {
     size: [record.mask.width, record.mask.height],
     path: decodeMaskToSVGPath(record.mask),
   }));
+}
+
+export async function segmentBox(image: string, size: { width: number; height: number }, box: Box): Promise<Match[]> {
+  const matches = await segment(image, buildObjectPrompt({ size, objects: [{ id: 1, prompts: [{ box }] }] }));
+  return matches.length ? matches : [{ id: "1", bounds: box, size: [1, 1], path: "M0 0H1V1H0Z" }];
 }

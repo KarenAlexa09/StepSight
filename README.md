@@ -9,13 +9,17 @@ npm install
 npm run dev
 ```
 
-Open http://localhost:3000, name a part ("red piece") and tap **Find**, or **Live** to keep looking. **Photo** works without a camera.
+The flow:
 
-Open http://localhost:3000/manual and paste a PDF link (for example a LEGO building instructions PDF). Muse Spark reads it in the background (about 90 s for 40 pages) and the steps are saved on the device.
+1. **Home** (`/`): your current project as a folder, level and XP, gallery and "just find something".
+2. **New project** (`/manual`): paste a PDF link (for example a LEGO building instructions PDF). Muse Spark reads it in the background (about 90 s for 40 pages); steps are saved on the device.
+3. **Check parts** (`/parts`): one photo of all the parts; SAM looks for every color the manual needs.
+4. **Build** (`/build`): the camera, the current step and its part chips. Tap a chip or **Show me** and SAM highlights the part with the "found it" effect. **Done, check me** sends a photo to Muse Spark, which checks it against what the step should look like: you get "Solid." with XP and stars, or "Almost." with what to fix.
+5. **Talk to Timber** by mic or text in plain language ("where's the gray clip?", "ok what now?", "say that again"). Muse Voice Transcribe hears it, Muse Spark decides what to do, and Timber answers out loud (Fish Audio).
+6. **You built it** (`/done`) and **Gallery** (`/gallery`).
+7. **Find** (`/find`): ask for anything in the camera. If SAM can't find it in a busy scene, Muse Spark locates the area first and SAM cuts it out.
 
-With a manual saved, the home screen becomes a step-by-step guide: tap a part chip or **Show me** to find it, **Next** / **Back** to move, and Timber reads each step aloud (Fish Audio). Tap the mic and say "next", "back", "where is it" or "repeat" (Muse Voice Transcribe). `npm test` checks the WAV encoder used for voice.
-
-Then **Check parts** (`/parts`): take one photo of all the parts and SAM looks for every color the manual needs, comparing how many it sees with how many the manual asks for.
+Timber's picture was made with Muse Image. `npm test` checks the WAV encoder used for voice.
 
 On a phone (same Wi-Fi): `npm run dev:phone`, then open `https://<your-computer-ip>:3000` and accept the certificate warning. Browsers only allow the camera over HTTPS.
 
