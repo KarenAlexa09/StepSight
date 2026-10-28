@@ -1,6 +1,8 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { getSettings } from "../lib/settings";
+import { play } from "../lib/sound";
 import type { Intent } from "../lib/spark";
 import { recordingToWav } from "../lib/wav";
 
@@ -11,27 +13,19 @@ export type StepContext = { instruction: string; parts: string[] };
 export function useTimber(onIntent: (intent: Intent) => void, step?: StepContext) {
   const audio = useRef<HTMLAudioElement | null>(null);
   const recorder = useRef<MediaRecorder | null>(null);
-  const mutedRef = useRef(false);
-  const [muted, setMutedState] = useState(false);
   const [listening, setListening] = useState(false);
   const [thinking, setThinking] = useState(false);
   const [heard, setHeard] = useState("");
 
-  function setMuted(value: boolean) {
-    mutedRef.current = value;
-    setMutedState(value);
-    if (value) audio.current?.pause();
-  }
-
   async function say(text: string) {
-    if (mutedRef.current || !text) return;
+    if (!getSettings().sound || !text) return;
     try {
       const res = await fetch("/api/speak", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ text }),
       });
-      if (!res.ok || mutedRef.current) return;
+      if (!res.ok || !getSettings().sound) return;
       audio.current?.pause();
       audio.current = new Audio(URL.createObjectURL(await res.blob()));
       await audio.current.play();
@@ -88,6 +82,7 @@ export function useTimber(onIntent: (intent: Intent) => void, step?: StepContext
         }
       };
       rec.start();
+      play("boop");
       setListening(true);
       setTimeout(() => rec.state === "recording" && rec.stop(), MAX_RECORDING_MS);
     } catch {
@@ -95,5 +90,5 @@ export function useTimber(onIntent: (intent: Intent) => void, step?: StepContext
     }
   }
 
-  return { say, ask, listen, listening, thinking, heard, muted, setMuted };
+  return { say, ask, listen, listening, thinking, heard };
 }

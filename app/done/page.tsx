@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import Replay from "../../components/Replay";
 import Timber from "../../components/Timber";
 import { shareCard } from "../../lib/card";
+import { play } from "../../lib/sound";
 import type { Manual } from "../../lib/manual";
 import { level, loadBuilds, loadManual, loadProgress, loadReplay, saveBuilds, type Progress } from "../../lib/progress";
 
@@ -37,6 +38,10 @@ export default function DonePage() {
     }
   }, []);
 
+  useEffect(() => {
+    if (manual) play("level");
+  }, [manual]);
+
   if (!manual || !progress) return <main className="screen paper" />;
 
   const minutes = Math.max(1, Math.round(((progress.finishedAt ?? Date.now()) - progress.startedAt) / 60000));
@@ -47,7 +52,7 @@ export default function DonePage() {
       <span className="chip hi center">Level · {name}</span>
       <div className="center-col">
         <Timber pose="hardhat" size={170} />
-        <h1 className="title huge">You built it.</h1>
+        <h1 className="title huge">{manual.mode === "fix" ? "You fixed it." : "You built it."}</h1>
         <p className="hand big">I just watched.</p>
       </div>
 
@@ -56,7 +61,7 @@ export default function DonePage() {
       <div className="card-collect">
         <span className="tab">CARD</span>
         <span className="folder-title">{manual.title}</span>
-        <span className="hand">built by you</span>
+        <span className="hand">{manual.mode === "fix" ? "fixed by you" : "built by you"}</span>
         <div className="stat-grid">
           <span>
             <b>{minutes} min</b>time

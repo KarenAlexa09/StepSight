@@ -678,3 +678,179 @@ button.link:disabled {
 .primary.off {
   opacity: 0.6;
 }
+
+.prep {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.prep label {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  min-height: 52px;
+  padding: 10px 14px;
+  background: #fff;
+  border: 2px solid var(--ink);
+  border-radius: 16px;
+  cursor: pointer;
+}
+
+.prep input {
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+  accent-color: var(--ink);
+}
+
+.prep input:checked + span {
+  text-decoration: line-through;
+  color: var(--pencil);
+}
+
+.late-in {
+  animation: fade-in 0.4s 2.1s both;
+}
+
+.trail-line {
+  fill: none;
+  stroke: var(--ink);
+  stroke-width: 4;
+  stroke-dasharray: 10 8;
+  stroke-linecap: round;
+  animation: dash 1s linear infinite;
+}
+
+.trail-head {
+  fill: var(--ink);
+  stroke: var(--ink);
+  stroke-width: 2;
+  stroke-linejoin: round;
+}
+
+.dest {
+  fill: rgba(255, 255, 255, 0.25);
+  stroke: var(--ink);
+  stroke-width: 3;
+  stroke-dasharray: 8 6;
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: ring 1.4s 2.2s ease-out infinite both;
+}
+
+.travel {
+  transform-box: view-box;
+  filter: drop-shadow(3px 3px 0 var(--ink));
+  opacity: 0;
+  animation: travel 1.7s 2.3s ease-in-out 3 both;
+}
+
+.travel.remove {
+  animation-name: travel-away;
+}
+
+.action-chip {
+  position: absolute;
+  left: 12px;
+  bottom: 12px;
+  margin: 0;
+  max-width: 55%;
+  padding: 6px 12px;
+  font-family: var(--font-mono), monospace;
+  font-size: 12px;
+  background: var(--highlighter);
+  border: 2px solid var(--ink);
+  border-radius: 999px;
+  box-shadow: 2px 2px 0 var(--ink);
+  animation: fade-in 0.4s 2s both;
+}
+
+.memo {
+  position: absolute;
+  left: 10px;
+  bottom: 10px;
+  z-index: 2;
+  width: 118px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  font: inherit;
+  text-align: left;
+  color: var(--ink);
+  background: var(--paper);
+  border: 2px solid var(--ink);
+  border-radius: 14px;
+  box-shadow: 3px 3px 0 var(--ink);
+  cursor: pointer;
+  transform: rotate(-2deg);
+  animation: pop-in 0.5s cubic-bezier(0.3, 1.6, 0.5, 1) both;
+}
+
+.memo svg {
+  display: block;
+  width: 100%;
+  height: 78px;
+  background: #fff;
+}
+
+.memo span {
+  padding: 4px 8px 5px;
+  font-family: var(--font-mono), monospace;
+  font-size: 11px;
+  line-height: 1.2;
+  border-top: 2px solid var(--ink);
+}
+
+@keyframes dash {
+  to {
+    stroke-dashoffset: -18;
+  }
+}
+
+@keyframes travel {
+  0% {
+    opacity: 0;
+    transform: translate(0, 0);
+  }
+  12% {
+    opacity: 1;
+  }
+  70%,
+  85% {
+    opacity: 1;
+    transform: translate(var(--vx), var(--vy));
+  }
+  100% {
+    opacity: 0;
+    transform: translate(var(--vx), var(--vy));
+  }
+}
+
+@keyframes travel-away {
+  0% {
+    opacity: 0;
+    transform: translate(0, 0) scale(1);
+  }
+  12% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(var(--vx), var(--vy)) scale(0.7);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .late-in,
+  .trail-line,
+  .dest,
+  .action-chip,
+  .memo {
+    animation: none;
+  }
+}
