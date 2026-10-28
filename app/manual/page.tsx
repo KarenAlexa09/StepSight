@@ -70,7 +70,7 @@ export default function ManualPage() {
         if (!poll.ok) throw new Error(data.error);
         if (data.status === "failed") throw new Error("Timber couldn't find good instructions. Try another name or link.");
         if (data.status === "done") {
-          const done: Manual = { ...data.manual, mode };
+          const done: Manual = { ...data.manual, mode, pdf: body.url };
           setManual(done);
           setPhase("done");
           saveManual(done);

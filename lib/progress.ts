@@ -10,6 +10,7 @@ export type Progress = {
   streak: number;
   mistakes: number;
   triedThisStep: boolean;
+  prepDone?: boolean;
   startedAt: number;
   finishedAt: number | null;
 };
@@ -17,6 +18,7 @@ export type Progress = {
 export type Build = { title: string; finishedAt: number; minutes: number; steps: number; stars: number; mistakes: number };
 
 export const XP_STEP = 25;
+export const XP_DO = 10;
 export const XP_FIRST_TRY = 10;
 const LEVELS: [number, string][] = [
   [0, "Apprentice"],

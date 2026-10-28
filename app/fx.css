@@ -1,0 +1,174 @@
+.spot {
+  opacity: 0;
+  animation: dim 1.9s 0.4s both;
+}
+
+.rays {
+  fill: rgba(228, 255, 58, 0.5);
+  transform-box: view-box;
+  opacity: 0;
+  animation: rays 1.9s 0.4s ease-out both;
+}
+
+.reticle {
+  fill: none;
+  stroke: var(--ink);
+  stroke-width: 5;
+  stroke-linecap: square;
+  transform-box: view-box;
+  opacity: 0;
+  animation: reticle 1.2s ease-out both;
+}
+
+.shock {
+  fill: none;
+  stroke: var(--ink);
+  stroke-width: 4;
+  transform-box: fill-box;
+  transform-origin: center;
+  opacity: 0;
+  animation: shock 0.9s ease-out both;
+}
+
+.click-fx {
+  position: absolute;
+  left: 50%;
+  top: 14%;
+  margin: 0;
+  padding: 0 16px;
+  font-family: var(--font-hand), cursive;
+  font-size: 52px;
+  line-height: 1.1;
+  background: var(--highlighter);
+  border: 3px solid var(--ink);
+  border-radius: 16px;
+  box-shadow: 4px 4px 0 var(--ink);
+  opacity: 0;
+  animation: click-pop 1s 3.5s ease-out both;
+}
+
+.stage:has(.snap-fx) .media {
+  animation: shake 0.35s 3.5s;
+}
+
+@keyframes rays {
+  0% {
+    opacity: 0;
+    transform: rotate(0) scale(0.5);
+  }
+  20% {
+    opacity: 1;
+  }
+  85% {
+    opacity: 1;
+    transform: rotate(40deg) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: rotate(55deg) scale(1);
+  }
+}
+
+@keyframes reticle {
+  0% {
+    opacity: 0;
+    transform: scale(1.9);
+  }
+  22% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  70% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes shock {
+  0% {
+    opacity: 0;
+    transform: scale(0.3);
+  }
+  12% {
+    opacity: 0.9;
+  }
+  100% {
+    opacity: 0;
+    transform: scale(3.2);
+  }
+}
+
+@keyframes click-pop {
+  0% {
+    opacity: 0;
+    transform: translateX(-50%) scale(0.4) rotate(-12deg);
+  }
+  25% {
+    opacity: 1;
+    transform: translateX(-50%) scale(1.25) rotate(-8deg);
+  }
+  45% {
+    transform: translateX(-50%) scale(1) rotate(-8deg);
+  }
+  80% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(-50%) scale(1) rotate(-8deg);
+  }
+}
+
+@keyframes shake {
+  25% {
+    transform: translate(-4px, 2px);
+  }
+  50% {
+    transform: translate(4px, -2px);
+  }
+  75% {
+    transform: translate(-2px, -1px);
+  }
+}
+
+.sound-cap {
+  position: fixed;
+  right: 12px;
+  top: 74px;
+  z-index: 50;
+  padding: 3px 10px;
+  font-family: var(--font-mono), monospace;
+  font-size: 12px;
+  background: var(--paper);
+  border: 2px solid var(--ink);
+  border-radius: 999px;
+  box-shadow: 2px 2px 0 var(--ink);
+  pointer-events: none;
+}
+
+html.slow .lift {
+  animation-duration: 2.8s;
+}
+
+html.slow .travel {
+  animation-duration: 3s;
+}
+
+html.big .instruction {
+  font-size: 30px;
+}
+
+html.big .ot,
+html.big .os,
+html.big .tip,
+html.big .status {
+  font-size: 18px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .stage:has(.snap-fx) .media {
+    animation: none;
+  }
+}
