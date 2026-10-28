@@ -24,7 +24,7 @@ export default function GalleryPage() {
 
       {builds.length === 0 ? (
         <div className="empty">
-          <Timber size={110} />
+          <Timber pose="wave" size={110} />
           <p className="hand">Nothing here yet. Finish a build and it lands here.</p>
           <Link href="/manual" className="primary">
             Start a project

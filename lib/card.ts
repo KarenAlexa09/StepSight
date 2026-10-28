@@ -68,7 +68,7 @@ export async function drawCard(data: CardData): Promise<Blob> {
     ctx.restore();
   }
 
-  const timber = await load("/mascot/timber.webp");
+  const timber = await load("/mascot/hardhat.webp");
   if (timber) ctx.drawImage(timber, 760, 600, 220, 220);
 
   ctx.fillStyle = INK;
