@@ -76,6 +76,205 @@ body {
   stroke: var(--ink);
   stroke-width: 2.5;
   stroke-linejoin: round;
+  animation: fade-in 0.3s 1.9s both;
+}
+
+.frozen::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  box-shadow: inset 0 0 0 8px var(--paper);
+  pointer-events: none;
+}
+
+.scan {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 6%;
+  background: rgba(228, 255, 58, 0.55);
+  border-bottom: 2px solid var(--ink);
+  animation: scan 1.2s linear infinite;
+}
+
+.flash {
+  position: absolute;
+  inset: 0;
+  background: #fff;
+  opacity: 0;
+  animation: flash 0.45s ease-out;
+}
+
+.ring {
+  fill: none;
+  stroke: var(--highlighter);
+  stroke-width: 4;
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: ring 1.4s 2s ease-out infinite both;
+}
+
+.dim {
+  fill: var(--ink);
+  opacity: 0;
+  animation: dim 1.6s 0.4s both;
+}
+
+.lift {
+  transform-box: view-box;
+  filter: drop-shadow(3px 3px 0 var(--ink));
+  opacity: 0;
+  animation: lift 1.7s 0.4s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.cut-outline {
+  fill: none;
+  stroke: var(--ink);
+  stroke-width: 3;
+}
+
+.particle {
+  stroke: var(--ink);
+  stroke-width: 1.5;
+  transform-box: fill-box;
+  transform-origin: center;
+  opacity: 0;
+  animation: burst 0.8s ease-out both;
+}
+
+.grab {
+  position: absolute;
+  left: 50%;
+  top: 64%;
+  margin: 0;
+  transform: translateX(-50%) rotate(-3deg);
+  font-family: var(--font-hand), cursive;
+  font-size: 30px;
+  white-space: nowrap;
+  background: var(--paper);
+  border: 2px solid var(--ink);
+  border-radius: 14px;
+  padding: 0 14px;
+  box-shadow: 3px 3px 0 var(--ink);
+  opacity: 0;
+  animation: grab 1.7s 0.4s both;
+}
+
+.steady {
+  position: absolute;
+  left: 50%;
+  top: 45%;
+  margin: 0;
+  transform: translate(-50%, -50%);
+  font-family: var(--font-hand), cursive;
+  font-size: 28px;
+  white-space: nowrap;
+  background: var(--paper);
+  border: 2px solid var(--ink);
+  border-radius: 14px;
+  padding: 2px 14px;
+  box-shadow: 3px 3px 0 var(--ink);
+}
+
+.tip {
+  margin: 0;
+  font-size: 14px;
+  color: var(--pencil);
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes scan {
+  from {
+    transform: translateY(-100%);
+  }
+  to {
+    transform: translateY(1700%);
+  }
+}
+
+@keyframes flash {
+  25% {
+    opacity: 0.85;
+  }
+}
+
+@keyframes ring {
+  from {
+    opacity: 0.9;
+    transform: scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: scale(1.35);
+  }
+}
+
+@keyframes dim {
+  20%,
+  70% {
+    opacity: 0.45;
+  }
+}
+
+@keyframes lift {
+  0% {
+    opacity: 1;
+    transform: none;
+  }
+  30%,
+  65% {
+    opacity: 1;
+    transform: translate(var(--dx), var(--dy)) scale(var(--s)) rotate(-5deg);
+  }
+  95% {
+    opacity: 1;
+    transform: none;
+  }
+  100% {
+    opacity: 0;
+    transform: none;
+  }
+}
+
+@keyframes burst {
+  15% {
+    opacity: 1;
+  }
+  0% {
+    transform: translate(0, 0) scale(0.3);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(var(--dx), var(--dy)) scale(1);
+  }
+}
+
+@keyframes grab {
+  0%,
+  28% {
+    opacity: 0;
+  }
+  35%,
+  62% {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fx,
+  .scan {
+    display: none;
+  }
+  .mask,
+  .ring {
+    animation: none;
+  }
 }
 
 .hint {
