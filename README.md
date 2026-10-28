@@ -11,6 +11,8 @@ npm run dev
 
 Open http://localhost:3000, name a part ("red piece") and tap **Find**, or **Live** to keep looking. **Photo** works without a camera.
 
+Open http://localhost:3000/manual and paste a PDF link (for example a LEGO building instructions PDF). Muse Spark reads it in the background (about 90 s for 40 pages) and the steps are saved on the device.
+
 On a phone (same Wi-Fi): `npm run dev:phone`, then open `https://<your-computer-ip>:3000` and accept the certificate warning. Browsers only allow the camera over HTTPS.
 
 ## Smoke tests

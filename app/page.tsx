@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useRef, useState, type CSSProperties, type FormEvent } from "react";
 import type { Match } from "../lib/sam";
 
@@ -51,6 +52,11 @@ export default function Home() {
   const [moving, setMoving] = useState(false);
   const [status, setStatus] = useState("Point the camera at your parts");
   const [live, setLive] = useState(false);
+
+  useEffect(() => {
+    const part = new URLSearchParams(window.location.search).get("find");
+    if (part) setPrompt(part.slice(0, 80));
+  }, []);
 
   useEffect(() => {
     let stream: MediaStream | undefined;
@@ -177,7 +183,9 @@ export default function Home() {
   return (
     <main className="screen">
       <header className="top">
-        <span className="brand">StepSight</span>
+        <Link href="/manual" className="brand">
+          StepSight
+        </Link>
         <span className="chip" role="status">
           {status}
         </span>
