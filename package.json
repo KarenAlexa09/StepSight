@@ -1,0 +1,17 @@
+{
+  "name": "stepsight",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22.9"
+  },
+  "scripts": {
+    "smoke:spark": "node --env-file-if-exists=.env --env-file-if-exists=.env.local scripts/smoke/spark.mjs",
+    "smoke:manual": "node --env-file-if-exists=.env --env-file-if-exists=.env.local scripts/smoke/manual.mjs",
+    "smoke:sam": "node --env-file-if-exists=.env --env-file-if-exists=.env.local scripts/smoke/sam.mjs",
+    "smoke:compare": "node --env-file-if-exists=.env --env-file-if-exists=.env.local scripts/smoke/compare.mjs",
+    "smoke:voice": "node --env-file-if-exists=.env --env-file-if-exists=.env.local scripts/smoke/voice.mjs",
+    "smoke:image": "node --env-file-if-exists=.env --env-file-if-exists=.env.local scripts/smoke/image.mjs",
+    "smoke:speak": "node --env-file-if-exists=.env --env-file-if-exists=.env.local scripts/smoke/speak.mjs"
+  }
+}

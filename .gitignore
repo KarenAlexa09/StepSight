@@ -1,0 +1,7 @@
+node_modules/
+.next/
+.env
+.env*.local
+smoke-output/
+samples/
+.DS_Store
