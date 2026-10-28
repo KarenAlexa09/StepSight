@@ -11,7 +11,9 @@ const STEP_KEY = "stepsight.step";
 const SAMPLE_WIDTH = 32;
 const SAMPLE_HEIGHT = 24;
 // shortcut: thresholds set by eye; recalibrate on the demo phone and lighting.
-const MOVED = 22;
+const MOVED = 30;
+const MOVED_TICKS = 6;
+const MIN_SNAPSHOT_MS = 4000;
 const STEADY = 6;
 const STEADY_TICKS = 4;
 const MAX_RECORDING_MS = 4000;
@@ -55,6 +57,7 @@ export default function Home() {
   const sampler = useRef<CanvasRenderingContext2D | null>(null);
   const lastSample = useRef<Uint8ClampedArray | null>(null);
   const steadyTicks = useRef(0);
+  const movedTicks = useRef(0);
   const busy = useRef(false);
   const [photo, setPhoto] = useState<string | null>(null);
   const [cameraError, setCameraError] = useState(false);
@@ -248,11 +251,15 @@ export default function Home() {
       lastSample.current = current;
 
       if (snapshot?.reference) {
-        if (difference(snapshot.reference, current) > MOVED) {
+        // A shaky hand moves the frame a little all the time; only a big, sustained move means "new spot".
+        const moved = Date.now() - snapshot.key > MIN_SNAPSHOT_MS && difference(snapshot.reference, current) > MOVED;
+        movedTicks.current = moved ? movedTicks.current + 1 : 0;
+        if (movedTicks.current >= MOVED_TICKS) {
+          movedTicks.current = 0;
+          steadyTicks.current = 0;
           setSnapshot(null);
           setMoving(true);
           setStatus("Hold steady…");
-          steadyTicks.current = 0;
         }
         return;
       }
@@ -305,7 +312,7 @@ export default function Home() {
         </span>
       )}
 
-      <div className={`stage${snapshot ? " frozen" : ""}`}>
+      <div className={`stage fill${snapshot ? " frozen" : ""}`}>
         {photo ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img ref={photoRef} src={photo} alt="Your uploaded photo" className="media" />
@@ -318,6 +325,11 @@ export default function Home() {
         )}
         {searching && <span className="scan" aria-hidden="true" />}
         {snapshot && <FoundIt key={snapshot.key} snapshot={snapshot} />}
+        {snapshot && !photo && (
+          <button type="button" className="back-live" onClick={() => setSnapshot(null)}>
+            Back to camera
+          </button>
+        )}
         {moving && !snapshot && <p className="steady">Hold steady…</p>}
         {cameraError && !photo && <p className="hint">No camera here. Upload a photo instead.</p>}
       </div>
@@ -433,7 +445,12 @@ function FoundIt({ snapshot }: { snapshot: Snapshot }) {
   return (
     <>
       <span className="flash fx" aria-hidden="true" />
-      <svg className="media overlay" viewBox={`0 0 ${width} ${height}`} aria-hidden="true">
+      <svg
+        className="media overlay"
+        viewBox={`0 0 ${width} ${height}`}
+        preserveAspectRatio="xMidYMid slice"
+        aria-hidden="true"
+      >
         <defs>
           <clipPath id={`cut-${key}`}>
             <path d={first.path} transform={maskTransform(first)} />
