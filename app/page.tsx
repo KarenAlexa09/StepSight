@@ -36,7 +36,7 @@ export default function Home() {
             What are we <mark>building</mark> today?
           </h1>
         </div>
-        <Timber size={128} className="bob" />
+        <Timber pose="wave" size={128} />
       </section>
 
       {manual ? (

@@ -12,14 +12,14 @@ npm run dev
 The flow:
 
 1. **Home** (`/`): your current project as a folder, level and XP, gallery and "just find something".
-2. **New project** (`/manual`): paste a PDF link (for example a LEGO building instructions PDF). Muse Spark reads it in the background (about 90 s for 40 pages); steps are saved on the device.
+2. **New project** (`/manual`): choose **Build something** or **Fix something**, then start from a **photo** (Muse Spark names the product), a **name** ("IKEA Kallax shelf", "bike chain slipped off") or a **PDF link**. Photo and name use Muse Spark's web search to find the manual or a reliable guide; a link is read page by page (about 90 s for 40 pages). Steps are saved on the device.
 3. **Check parts** (`/parts`): one photo of all the parts; SAM looks for every color the manual needs.
 4. **Build** (`/build`): the camera, the current step and its part chips. Tap a chip or **Show me** and SAM highlights the part with the "found it" effect. **Done, check me** sends a photo to Muse Spark, which checks it against what the step should look like: you get "Solid." with XP and stars, or "Almost." with what to fix.
 5. **Talk to Timber** by mic or text in plain language ("where's the gray clip?", "ok what now?", "say that again"). Muse Voice Transcribe hears it, Muse Spark decides what to do, and Timber answers out loud (Fish Audio).
 6. **You built it** (`/done`) and **Gallery** (`/gallery`).
 7. **Find** (`/find`): ask for anything in the camera. If SAM can't find it in a busy scene, Muse Spark locates the area first and SAM cuts it out.
 
-Timber's picture was made with Muse Image. `npm test` checks the WAV encoder used for voice.
+Timber has eight poses (wave, reading, point, think, thumbs, oops, celebrate, hardhat) made by editing one master image with Muse Image (`scripts/make-poses.mjs`, then `scripts/cutout.mjs` removes the paper background), each with its own small animation. `npm test` checks the WAV encoder used for voice.
 
 On a phone (same Wi-Fi): `npm run dev:phone`, then open `https://<your-computer-ip>:3000` and accept the certificate warning. Browsers only allow the camera over HTTPS.
 

@@ -98,7 +98,6 @@ mark {
 .timber {
   display: block;
   flex-shrink: 0;
-  border-radius: 50%;
   object-fit: contain;
 }
 
@@ -243,6 +242,7 @@ mark {
 }
 
 .build .peek {
+  border-radius: 50%;
   position: absolute;
   right: 10px;
   top: -40px;
@@ -601,4 +601,80 @@ button.link:disabled {
 .replay-bar span {
   background: var(--ink);
   transition: width 0.3s linear;
+}
+
+.m-bob {
+  animation: bob 3s ease-in-out infinite;
+}
+
+.m-hop {
+  animation: hop 1.2s ease-in-out infinite;
+}
+
+.m-wiggle {
+  animation: wiggle 2.4s ease-in-out infinite;
+}
+
+.m-pop {
+  animation: pop-in 0.5s cubic-bezier(0.3, 1.6, 0.5, 1) both;
+}
+
+@keyframes wiggle {
+  0%,
+  100% {
+    transform: rotate(-3deg);
+  }
+  50% {
+    transform: rotate(3deg) translateY(-3px);
+  }
+}
+
+@keyframes pop-in {
+  from {
+    transform: scale(0.5) rotate(-8deg);
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .m-bob,
+  .m-hop,
+  .m-wiggle,
+  .m-pop {
+    animation: none;
+  }
+}
+
+.seg {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  border: 2px solid var(--ink);
+  border-radius: 999px;
+  overflow: hidden;
+  background: #fff;
+}
+
+.seg button {
+  font: inherit;
+  font-size: 15px;
+  min-height: 44px;
+  border: 0;
+  background: none;
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.seg button[aria-pressed="true"] {
+  background: var(--ink);
+  color: var(--paper);
+}
+
+.seg button:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.primary.off {
+  opacity: 0.6;
 }

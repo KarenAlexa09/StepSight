@@ -55,6 +55,28 @@ export async function locate(
   return result.right - result.left > 2 && result.bottom - result.top > 2 ? result : null;
 }
 
+export async function identify(image: string): Promise<{ name: string; issue: string }> {
+  return ask<{ name: string; issue: string }>(
+    [
+      {
+        type: "input_text",
+        text:
+          "What product or object is in this photo? name: its most specific name as you can tell (brand and model if visible, " +
+          "otherwise a plain description like 'bicycle chain'), max 8 words. issue: if it looks broken, loose or open for repair, " +
+          "say what in a few words; otherwise empty.",
+      },
+      { type: "input_image", image_url: image },
+    ],
+    "identify",
+    {
+      type: "object",
+      additionalProperties: false,
+      required: ["name", "issue"],
+      properties: { name: { type: "string" }, issue: { type: "string" } },
+    },
+  );
+}
+
 export type Check = { done: boolean; problem: string; fix: string; reply: string };
 
 export async function checkStep(

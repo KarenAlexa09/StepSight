@@ -46,7 +46,7 @@ export default function DonePage() {
     <main className="screen paper done">
       <span className="chip hi center">Level · {name}</span>
       <div className="center-col">
-        <Timber size={170} className="bob" />
+        <Timber pose="hardhat" size={170} />
         <h1 className="title huge">You built it.</h1>
         <p className="hand big">I just watched.</p>
       </div>

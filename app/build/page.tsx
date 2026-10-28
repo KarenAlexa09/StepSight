@@ -14,8 +14,8 @@ import type { Check, Intent } from "../../lib/spark";
 
 type Phase = "work" | "checking" | "correct" | "fix";
 
-const partPrompt = (p: Part) => `${p.color.trim().toLowerCase()} piece`;
-const partLabel = (p: Part) => `${p.quantity}× ${p.color} ${p.name}`;
+const partPrompt = (p: Part) => (p.color.trim() ? `${p.color.trim().toLowerCase()} piece` : p.name);
+const partLabel = (p: Part) => `${p.quantity}× ${p.color} ${p.name}`.replace("  ", " ");
 
 export default function BuildPage() {
   const router = useRouter();
@@ -159,7 +159,7 @@ export default function BuildPage() {
       </p>
 
       <section className="step-card">
-        <Timber size={56} className="peek" />
+        <Timber key={phase} pose={phase === "checking" ? "think" : "point"} size={56} className="peek" />
         <span className="step-count">
           p. {step.page} · {step.check}
         </span>
@@ -212,7 +212,7 @@ export default function BuildPage() {
             ))}
           </div>
           <span className="stamp">✓ CHECKED</span>
-          <Timber size={150} className="hop" />
+          <Timber pose={earned.firstTry ? "celebrate" : "thumbs"} size={150} />
           <h2 className="title huge">Solid.</h2>
           <p className="hand big">{check?.reply || "Look at you, total foreman."}</p>
           <div className="stats">
@@ -229,7 +229,7 @@ export default function BuildPage() {
       {phase === "fix" && (
         <div className="overlay-sheet" role="dialog" aria-label="Needs a fix">
           <div className="fix-card">
-            <Timber size={64} />
+            <Timber pose="oops" size={64} />
             <div>
               <h2 className="title">Almost.</h2>
               <p>{check?.problem}</p>
