@@ -1,0 +1,33 @@
+{
+  "name": "stepsight",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": "22.x"
+  },
+  "scripts": {
+    "dev": "next dev",
+    "dev:phone": "next dev --experimental-https -H 0.0.0.0",
+    "build": "next build",
+    "start": "next start",
+    "smoke:spark": "node --env-file-if-exists=.env --env-file-if-exists=.env.local scripts/smoke/spark.mjs",
+    "smoke:manual": "node --env-file-if-exists=.env --env-file-if-exists=.env.local scripts/smoke/manual.mjs",
+    "smoke:sam": "node --env-file-if-exists=.env --env-file-if-exists=.env.local scripts/smoke/sam.mjs",
+    "smoke:compare": "node --env-file-if-exists=.env --env-file-if-exists=.env.local scripts/smoke/compare.mjs",
+    "smoke:voice": "node --env-file-if-exists=.env --env-file-if-exists=.env.local scripts/smoke/voice.mjs",
+    "smoke:image": "node --env-file-if-exists=.env --env-file-if-exists=.env.local scripts/smoke/image.mjs",
+    "smoke:speak": "node --env-file-if-exists=.env --env-file-if-exists=.env.local scripts/smoke/speak.mjs"
+  },
+  "dependencies": {
+    "@meta-sam/parser": "^0.1.0",
+    "next": "^16.4.3",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.5",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "typescript": "^7.0.2"
+  }
+}

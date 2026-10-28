@@ -1,0 +1,10 @@
+node_modules/
+.next/
+.env
+.env*.local
+smoke-output/
+samples/
+.DS_Store
+next-env.d.ts
+*.tsbuildinfo
+certificates/
