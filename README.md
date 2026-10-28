@@ -11,6 +11,12 @@ npm run dev
 
 Open http://localhost:3000, name a part ("red piece") and tap **Find**, or **Live** to keep looking. **Photo** works without a camera.
 
+Open http://localhost:3000/manual and paste a PDF link (for example a LEGO building instructions PDF). Muse Spark reads it in the background (about 90 s for 40 pages) and the steps are saved on the device.
+
+With a manual saved, the home screen becomes a step-by-step guide: tap a part chip or **Show me** to find it, **Next** / **Back** to move, and Timber reads each step aloud (Fish Audio). Tap the mic and say "next", "back", "where is it" or "repeat" (Muse Voice Transcribe). `npm test` checks the WAV encoder used for voice.
+
+Then **Check parts** (`/parts`): take one photo of all the parts and SAM looks for every color the manual needs, comparing how many it sees with how many the manual asks for.
+
 On a phone (same Wi-Fi): `npm run dev:phone`, then open `https://<your-computer-ip>:3000` and accept the certificate warning. Browsers only allow the camera over HTTPS.
 
 ## Smoke tests
