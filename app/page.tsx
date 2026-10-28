@@ -2,9 +2,9 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState, type CSSProperties, type FormEvent } from "react";
+import { maskTransform, toShot, type Shot } from "../lib/image";
 import type { Match } from "../lib/sam";
 
-const MAX_WIDTH = 768;
 const SAMPLE_WIDTH = 32;
 const SAMPLE_HEIGHT = 24;
 // shortcut: thresholds set by eye; recalibrate on the demo phone and lighting.
@@ -23,18 +23,12 @@ const PARTICLES: [number, number, string][] = [
   [-12, 16, "#C9C3F5"],
 ];
 
-type Shot = { image: string; width: number; height: number };
 type Snapshot = Shot & { matches: Match[]; key: number; reference: Uint8ClampedArray | null };
 
 function difference(a: Uint8ClampedArray, b: Uint8ClampedArray) {
   let sum = 0;
   for (let i = 0; i < a.length; i += 4) sum += Math.abs(a[i] + a[i + 1] + a[i + 2] - b[i] - b[i + 1] - b[i + 2]) / 3;
   return sum / (a.length / 4);
-}
-
-function maskTransform(m: Match) {
-  const { left, top, right, bottom } = m.bounds;
-  return `translate(${left} ${top}) scale(${(right - left) / m.size[0]} ${(bottom - top) / m.size[1]})`;
 }
 
 export default function Home() {
@@ -93,12 +87,7 @@ export default function Home() {
     const width = source instanceof HTMLVideoElement ? source.videoWidth : source.naturalWidth;
     const height = source instanceof HTMLVideoElement ? source.videoHeight : source.naturalHeight;
     if (!width || !height) return null;
-    const scale = Math.min(1, MAX_WIDTH / width);
-    const canvas = document.createElement("canvas");
-    canvas.width = Math.round(width * scale);
-    canvas.height = Math.round(height * scale);
-    canvas.getContext("2d")!.drawImage(source, 0, 0, canvas.width, canvas.height);
-    return { image: canvas.toDataURL("image/jpeg", 0.85), width: canvas.width, height: canvas.height };
+    return toShot(source, width, height);
   }
 
   async function find() {
@@ -263,7 +252,7 @@ function FoundIt({ snapshot }: { snapshot: Snapshot }) {
           </clipPath>
         </defs>
         {matches.map((m) => (
-          <path key={m.id} d={m.path} transform={maskTransform(m)} className="mask" vectorEffect="non-scaling-stroke" />
+          <path key={m.id} d={m.path} transform={maskTransform(m)} className="mask late" vectorEffect="non-scaling-stroke" />
         ))}
         <rect
           className="ring"

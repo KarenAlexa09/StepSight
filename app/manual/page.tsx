@@ -2,9 +2,8 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState, type FormEvent } from "react";
-import type { Manual } from "../../lib/manual";
+import { MANUAL_KEY, type Manual } from "../../lib/manual";
 
-const STORAGE_KEY = "stepsight.manual";
 const POLL_MS = 3000;
 const GIVE_UP_MS = 8 * 60 * 1000;
 
@@ -20,7 +19,7 @@ export default function ManualPage() {
 
   useEffect(() => {
     try {
-      const saved = localStorage.getItem(STORAGE_KEY);
+      const saved = localStorage.getItem(MANUAL_KEY);
       if (saved) {
         setManual(JSON.parse(saved));
         setPhase("done");
@@ -57,7 +56,7 @@ export default function ManualPage() {
           setManual(data.manual);
           setPhase("done");
           try {
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(data.manual));
+            localStorage.setItem(MANUAL_KEY, JSON.stringify(data.manual));
           } catch {}
           return;
         }
@@ -71,7 +70,7 @@ export default function ManualPage() {
 
   function startOver() {
     try {
-      localStorage.removeItem(STORAGE_KEY);
+      localStorage.removeItem(MANUAL_KEY);
     } catch {}
     setManual(null);
     setPhase("idle");
@@ -146,8 +145,11 @@ export default function ManualPage() {
           </ol>
           <div className="row sticky">
             <button type="button" className="secondary" onClick={startOver}>
-              New manual
+              New
             </button>
+            <Link className="secondary" href="/parts">
+              Check parts
+            </Link>
             <Link className="primary" href={first ? `/?find=${encodeURIComponent(`${first.color} piece`)}` : "/"}>
               Start building
             </Link>

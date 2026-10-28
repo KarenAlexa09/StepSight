@@ -1,4 +1,5 @@
 const API = "https://api.meta.ai/v1/responses";
+export const MANUAL_KEY = "stepsight.manual";
 
 export type Part = { name: string; color: string; quantity: number };
 export type Step = { number: number; page: number; instruction: string; parts: Part[]; check: string };

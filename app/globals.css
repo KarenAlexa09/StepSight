@@ -76,6 +76,9 @@ body {
   stroke: var(--ink);
   stroke-width: 2.5;
   stroke-linejoin: round;
+}
+
+.mask.late {
   animation: fade-in 0.3s 1.9s both;
 }
 
@@ -191,6 +194,59 @@ a.primary {
 
 a.primary {
   color: var(--paper);
+}
+
+a.secondary {
+  color: var(--ink);
+  text-decoration: none;
+}
+
+.ok {
+  margin: 0;
+  background: #c8f5da;
+  border: 2px solid var(--ink);
+  border-radius: 14px;
+  padding: 10px 14px;
+}
+
+.colors {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.colors button {
+  width: 100%;
+  font: inherit;
+  font-size: 16px;
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  min-height: 48px;
+  background: #fff;
+  color: var(--ink);
+  border: 2px solid var(--ink);
+  border-radius: 14px;
+  cursor: pointer;
+  text-transform: capitalize;
+}
+
+.colors button[aria-pressed="true"] {
+  background: var(--highlighter);
+}
+
+.colors button:disabled {
+  cursor: default;
+}
+
+.count {
+  font-family: var(--font-mono), monospace;
+  font-size: 12px;
+  text-transform: none;
 }
 
 .primary:disabled {
@@ -367,7 +423,7 @@ a.primary {
   .scan {
     display: none;
   }
-  .mask,
+  .mask.late,
   .ring {
     animation: none;
   }
