@@ -116,11 +116,6 @@ export default function ManualPage() {
           ←
         </Link>
         <span className="chip">{phase === "done" ? "Plan ready" : "New project"}</span>
-        {phase !== "done" && (
-          <Link href="/demo" className="link">
-            No bricks? Try the demo
-          </Link>
-        )}
       </header>
 
       {phase !== "done" && (

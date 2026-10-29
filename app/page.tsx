@@ -1,12 +1,15 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import Timber from "../components/Timber";
+import { startDemo } from "../lib/demo";
 import type { Manual } from "../lib/manual";
 import { level, loadBuilds, loadManual, loadProgress, type Build, type Progress } from "../lib/progress";
 
 export default function Home() {
+  const router = useRouter();
   const [manual, setManual] = useState<Manual | null>(null);
   const [progress, setProgress] = useState<Progress | null>(null);
   const [builds, setBuilds] = useState<Build[]>([]);
@@ -76,6 +79,16 @@ export default function Home() {
       </div>
 
       <div className="grow" />
+      <button
+        type="button"
+        className="secondary"
+        onClick={() => {
+          startDemo();
+          router.push("/build");
+        }}
+      >
+        Demo
+      </button>
       <Link href="/manual" className="primary">
         + New project
       </Link>

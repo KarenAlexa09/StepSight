@@ -1,5 +1,5 @@
 // Fish Audio library voice "Verity" (energetic young male).
-const TIMBER_VOICE = "711cf3ed00ab441a8f54a45058047b7a";
+const TIMBER_VOICE = "c333c7de8a71474bb6091f65be538734";
 
 export async function transcribe(wav: Blob): Promise<string> {
   const form = new FormData();
