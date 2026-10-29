@@ -15,7 +15,7 @@ export type Step = {
   target?: string;
   motion?: Motion;
 };
-export type Manual = { title: string; steps: Step[]; prep?: string[]; mode?: Mode; pdf?: string };
+export type Manual = { title: string; steps: Step[]; prep?: string[]; mode?: Mode; pdf?: string; demo?: boolean };
 export type Source = { kind: "pdf"; url: string } | { kind: "search"; query: string; mode: Mode };
 
 const part = {

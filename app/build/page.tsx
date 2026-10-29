@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import ActionIcon from "../../components/ActionIcon";
+import { demoPhoto } from "../../lib/demo";
 import CameraStage, { type CameraHandle } from "../../components/CameraStage";
 import HelpSheet from "../../components/HelpSheet";
 import Timber from "../../components/Timber";
@@ -58,6 +59,7 @@ export default function BuildPage() {
   const [earned, setEarned] = useState({ xp: 0, firstTry: false });
   const [ticked, setTicked] = useState<number[]>([]);
   const [help, setHelp] = useState(false);
+  const [demoAfter, setDemoAfter] = useState(false);
   const [simple, setSimple] = useState("");
 
   const step = manual && progress ? manual.steps[progress.step] : undefined;
@@ -93,6 +95,7 @@ export default function BuildPage() {
     update({ ...from, step: i, triedThisStep: false });
     setTarget(targetOf(s));
     setPhase("work");
+    setDemoAfter(false);
     setCheck(null);
     setSimple("");
     setHelp(false);
@@ -106,6 +109,10 @@ export default function BuildPage() {
 
   async function verify() {
     if (!step || !progress) return;
+    if (manual?.demo) {
+      setDemoAfter(true);
+      await new Promise((r) => setTimeout(r, 600));
+    }
     const shot = camera.current?.capture();
     if (!shot) {
       setStatus("Camera isn't ready yet");
@@ -304,7 +311,11 @@ export default function BuildPage() {
         </button>
       </header>
 
-      <CameraStage ref={camera} live={false} autoTarget={target} resetKey={progress.step} onStatus={setStatus} />
+      <CameraStage ref={camera} live={false} autoTarget={target}
+        resetKey={progress.step}
+        demo={manual?.demo ? demoPhoto(progress.step, demoAfter, progress.triedThisStep) : undefined}
+        onStatus={setStatus}
+      />
       <p className="status" role="status">
         {status}
       </p>

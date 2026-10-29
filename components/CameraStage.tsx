@@ -109,12 +109,14 @@ export default function CameraStage({
   live,
   autoTarget,
   resetKey = 0,
+  demo,
   onStatus,
 }: {
   ref: Ref<CameraHandle>;
   live: boolean;
   autoTarget: string;
   resetKey?: number;
+  demo?: string;
   onStatus: (status: string) => void;
 }) {
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -133,6 +135,7 @@ export default function CameraStage({
 
   useEffect(() => {
     let stream: MediaStream | undefined;
+    if (demo) return;
     if (!navigator.mediaDevices) {
       setCameraError(true);
       return;
@@ -151,6 +154,12 @@ export default function CameraStage({
     setSnapshot(null);
     setMemo(null);
   }, [resetKey]);
+
+  useEffect(() => {
+    if (!demo) return;
+    setSnapshot(null);
+    setPhoto(demo);
+  }, [demo]);
 
   function sample() {
     const video = videoRef.current;
