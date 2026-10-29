@@ -1,9 +1,12 @@
+import { limited } from "../../../lib/limit";
 import { interpret } from "../../../lib/spark";
 
 const isText = (v: unknown, max: number) => typeof v === "string" && v.trim().length > 0 && v.length <= max;
 
-// shortcut: no auth or rate limit, same as /api/segment; add both before sharing the link publicly.
+// shortcut: rate limit only, no auth; add auth before sharing the link publicly.
 export async function POST(req: Request) {
+  const blocked = limited(req);
+  if (blocked) return blocked;
   const { said, step } = await req.json().catch(() => ({}));
   if (!isText(said, 300)) return Response.json({ error: "Say or type something for Timber." }, { status: 400 });
 

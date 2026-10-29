@@ -49,33 +49,40 @@ export default function DonePage() {
 
   return (
     <main className="screen paper done">
-      <span className="chip hi center">Level · {name}</span>
-      <div className="center-col">
-        <Timber pose="hardhat" size={170} />
-        <h1 className="title huge">{manual.mode === "fix" ? "You fixed it." : "You built it."}</h1>
-        <p className="hand big">I just watched.</p>
+      <div className="row-between">
+        <span className="chip hi">Level · {name}</span>
+        <span className="chip">
+          ★ {progress.stars}/{manual.steps.length}
+        </span>
       </div>
 
-      <Replay frames={frames} />
+      <div>
+        <h1 className="title huge">{manual.mode === "fix" ? "You fixed it." : "You built it."}</h1>
+        <p className="hand big">
+          {manual.title} · {minutes} min · I just watched.
+        </p>
+      </div>
 
-      <div className="card-collect">
-        <span className="tab">CARD</span>
-        <span className="folder-title">{manual.title}</span>
-        <span className="hand">{manual.mode === "fix" ? "fixed by you" : "built by you"}</span>
-        <div className="stat-grid">
-          <span>
-            <b>{minutes} min</b>time
-          </span>
-          <span>
-            <b>
-              {progress.stars}/{manual.steps.length}
-            </b>
-            first-try stars
-          </span>
-          <span>
-            <b>{progress.mistakes}</b>mistakes caught
-          </span>
-        </div>
+      <div className="done-hero">
+        <Replay frames={frames} />
+        <span className="done-timber">
+          <Timber pose="hardhat" size={112} />
+        </span>
+      </div>
+
+      <div className="stat3">
+        <span>
+          <b>{minutes} min</b>time
+        </span>
+        <span>
+          <b>
+            {progress.stars}/{manual.steps.length}
+          </b>
+          first try
+        </span>
+        <span>
+          <b>{progress.mistakes}</b>mistakes caught
+        </span>
       </div>
 
       <div>
@@ -88,33 +95,32 @@ export default function DonePage() {
         </p>
       </div>
 
-      <div className="grow" />
+      <button
+        type="button"
+        className="cta"
+        disabled={sharing}
+        onClick={async () => {
+          setSharing(true);
+          try {
+            await shareCard({
+              title: manual.title,
+              minutes,
+              stars: progress.stars,
+              steps: manual.steps.length,
+              mistakes: progress.mistakes,
+              photo: frames[frames.length - 1],
+            });
+          } catch {}
+          setSharing(false);
+        }}
+      >
+        {sharing ? "…" : "Share my replay"}
+      </button>
       <div className="row">
-        <button
-          type="button"
-          className="secondary"
-          disabled={sharing}
-          onClick={async () => {
-            setSharing(true);
-            try {
-              await shareCard({
-                title: manual.title,
-                minutes,
-                stars: progress.stars,
-                steps: manual.steps.length,
-                mistakes: progress.mistakes,
-                photo: frames[frames.length - 1],
-              });
-            } catch {}
-            setSharing(false);
-          }}
-        >
-          {sharing ? "…" : "Share card"}
-        </button>
         <Link href="/gallery" className="secondary">
           Gallery
         </Link>
-        <Link href="/" className="primary">
+        <Link href="/" className="secondary">
           Home
         </Link>
       </div>

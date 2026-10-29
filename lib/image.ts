@@ -35,3 +35,22 @@ export function thumb(dataUrl: string, width = 240): Promise<string> {
     img.src = dataUrl;
   });
 }
+
+export function cropBox(dataUrl: string, bounds: Match["bounds"], size = 180): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      const w = bounds.right - bounds.left;
+      const h = bounds.bottom - bounds.top;
+      const side = Math.max(w, h) * 1.5;
+      const x = Math.max(0, Math.min(img.width - side, bounds.left + w / 2 - side / 2));
+      const y = Math.max(0, Math.min(img.height - side, bounds.top + h / 2 - side / 2));
+      const canvas = document.createElement("canvas");
+      canvas.width = canvas.height = size;
+      canvas.getContext("2d")!.drawImage(img, x, y, side, side, 0, 0, size, size);
+      resolve(canvas.toDataURL("image/jpeg", 0.8));
+    };
+    img.onerror = () => reject(new Error("crop failed"));
+    img.src = dataUrl;
+  });
+}

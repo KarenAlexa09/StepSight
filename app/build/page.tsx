@@ -9,7 +9,7 @@ import CameraStage, { type CameraHandle } from "../../components/CameraStage";
 import HelpSheet from "../../components/HelpSheet";
 import Timber from "../../components/Timber";
 import { useTimber } from "../../components/useTimber";
-import { thumb } from "../../lib/image";
+import { cropBox, thumb, type Shot } from "../../lib/image";
 import type { Manual, Part, Step } from "../../lib/manual";
 import {
   addReplayFrame,
@@ -32,11 +32,7 @@ const partPrompt = (p: Part) => (p.color.trim() ? `${p.color.trim().toLowerCase(
 const kindOf = (s: Step) => s.kind ?? "verify";
 const targetOf = (s: Step) => s.target?.trim() || (s.parts[0] ? partPrompt(s.parts[0]) : "");
 const partLabel = (p: Part) => `${p.quantity}× ${p.color} ${p.name}`.replace("  ", " ");
-const HINT = {
-  do: "No photo needed. Just do it, then tap Done.",
-  find: "Tap Show me and I'll point it out.",
-  verify: "When you're done I'll check it with a photo.",
-};
+const AUTO_MS = 1600;
 
 function kicker(s: Step) {
   const type = s.motion?.type;
@@ -49,6 +45,7 @@ function kicker(s: Step) {
 export default function BuildPage() {
   const router = useRouter();
   const camera = useRef<CameraHandle>(null);
+  const advanceTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const settings = useSettings();
   const [manual, setManual] = useState<Manual | null>(null);
   const [progress, setProgress] = useState<Progress | null>(null);
@@ -60,10 +57,13 @@ export default function BuildPage() {
   const [ticked, setTicked] = useState<number[]>([]);
   const [help, setHelp] = useState(false);
   const [demoAfter, setDemoAfter] = useState(false);
+  const [piece, setPiece] = useState<string | null>(null);
   const [simple, setSimple] = useState("");
 
   const step = manual && progress ? manual.steps[progress.step] : undefined;
   const timber = useTimber(onIntent, step && { instruction: step.instruction, parts: step.parts.map(partLabel) });
+
+  useEffect(() => () => clearTimeout(advanceTimer.current), []);
 
   useEffect(() => {
     const m = loadManual();
@@ -96,6 +96,7 @@ export default function BuildPage() {
     setTarget(targetOf(s));
     setPhase("work");
     setDemoAfter(false);
+    setPiece(null);
     setCheck(null);
     setSimple("");
     setHelp(false);
@@ -105,6 +106,29 @@ export default function BuildPage() {
 
   function celebrateLevel(before: number, gained: number) {
     if (level(before).name !== level(before + gained).name) setTimeout(() => play("level"), 900);
+  }
+
+  function proceed(from: Progress) {
+    clearTimeout(advanceTimer.current);
+    if (!manual) return;
+    if (from.step >= manual.steps.length - 1) {
+      update({ ...from, finishedAt: Date.now() });
+      router.push("/done");
+      return;
+    }
+    goTo(from.step + 1, true, from);
+  }
+
+  async function findPiece(shot: Shot, prompt: string) {
+    try {
+      const res = await fetch("/api/segment", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ image: shot.image, prompt, width: shot.width, height: shot.height }),
+      });
+      const data = await res.json();
+      if (res.ok && data.matches?.[0]) setPiece(await cropBox(shot.image, data.matches[0].bounds));
+    } catch {}
   }
 
   async function verify() {
@@ -119,6 +143,7 @@ export default function BuildPage() {
       return;
     }
     setPhase("checking");
+    setPiece(null);
     setStatus("Timber is checking your build…");
     try {
       const res = await fetch("/api/verify", {
@@ -133,25 +158,28 @@ export default function BuildPage() {
       if (!res.ok) throw new Error((result as unknown as { error: string }).error);
       setCheck(result);
       setStatus(result.done ? "Step checked" : "Needs a fix");
-      timber.say(result.done ? result.reply : result.fix || result.reply);
+      if (!result.done) timber.say(result.fix || result.reply);
       if (result.done) {
         thumb(shot.image).then(addReplayFrame);
         const firstTry = !progress.triedThisStep;
         const xp = XP_STEP + (firstTry ? XP_FIRST_TRY : 0);
         setEarned({ xp, firstTry });
-        update({
+        const next = {
           ...progress,
           xp: progress.xp + xp,
           stars: progress.stars + (firstTry ? 1 : 0),
           streak: firstTry ? progress.streak + 1 : 0,
-        });
+        };
+        update(next);
         play("success");
         celebrateLevel(progress.xp, xp);
         setPhase("correct");
+        advanceTimer.current = setTimeout(() => proceed(next), AUTO_MS);
       } else {
         update({ ...progress, mistakes: progress.mistakes + 1, streak: 0, triedThisStep: true });
         play("oops");
         setPhase("fix");
+        if (targetOf(step)) findPiece(shot, targetOf(step));
       }
     } catch (error) {
       setPhase("work");
@@ -237,7 +265,6 @@ export default function BuildPage() {
 
   const total = manual.steps.length;
   const kind = kindOf(step);
-  const fixing = manual.mode === "fix";
   const done = kind === "verify" ? verify : completeDo;
 
   if (manual.prep?.length && !progress.prepDone) {
@@ -311,16 +338,73 @@ export default function BuildPage() {
         </button>
       </header>
 
-      <CameraStage ref={camera} live={false} autoTarget={target}
-        resetKey={progress.step}
-        demo={manual?.demo ? demoPhoto(progress.step, demoAfter, progress.triedThisStep) : undefined}
-        onStatus={setStatus}
-      />
-      <p className="status" role="status">
-        {status}
-      </p>
+      <div className={`stage-wrap ${phase}`}>
+        <CameraStage
+          ref={camera}
+          live={false}
+          autoTarget={target}
+          resetKey={progress.step}
+          demo={manual?.demo ? demoPhoto(progress.step, demoAfter, progress.triedThisStep) : undefined}
+          onStatus={setStatus}
+        />
+        <span className="stage-status" role="status">
+          {status}
+        </span>
+        {(phase === "work" || phase === "fix") && (target || phase === "fix") && (
+          <button
+            type="button"
+            className="showme"
+            onClick={() => {
+              setPhase("work");
+              show();
+            }}
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" aria-hidden="true">
+              <circle cx="12" cy="12" r="3" />
+              <path d="M12 3v4M12 17v4M3 12h4M17 12h4" />
+            </svg>
+            Show me
+          </button>
+        )}
+        {phase === "correct" && (
+          <div className="verdict ok" role="status">
+            <span className="verdict-icon">
+              <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M5 12l5 5 9-10" />
+              </svg>
+            </span>
+            <div className="verdict-text">
+              <b>Solid!</b>
+              <span className="hand">{check?.reply || "Looks just right."}</span>
+            </div>
+            <div className="verdict-stats">
+              <span className="sticker">+{earned.xp} xp</span>
+              <span className="sticker hi">{earned.firstTry ? "first try" : "fixed it"}</span>
+            </div>
+          </div>
+        )}
+        {phase === "fix" && (
+          <div className="verdict bad" role="alert">
+            <span className="verdict-timber">
+              <Timber pose="oops" size={84} />
+            </span>
+            <div className="verdict-text">
+              <b>Almost.</b>
+              <span>{check?.problem}</span>
+              {check?.fix && <span className="hand">{check.fix}</span>}
+            </div>
+            {piece && (
+              <figure className="verdict-piece">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={piece} alt={`Close-up of the ${targetOf(step)}`} />
+                <figcaption>this one</figcaption>
+              </figure>
+            )}
+          </div>
+        )}
+      </div>
 
-      <section className="action-card">
+      <section className="action-card compact">
         <span className="tile">
           <ActionIcon motion={step.motion} kind={kind} />
         </span>
@@ -332,37 +416,31 @@ export default function BuildPage() {
           <h1 className="instruction">{step.instruction}</h1>
         </div>
       </section>
-      <p className="tip">{kind === "verify" && !fixing && step.check ? `I'll check: ${step.check}` : HINT[kind]}</p>
 
-      {step.parts.length > 0 && (
-        <div className="targets">
-          {step.parts.map((p, i) => (
-            <button
-              key={i}
-              type="button"
-              className="part"
-              aria-pressed={target === partPrompt(p)}
-              onClick={() => {
-                setTarget(partPrompt(p));
-                show(partPrompt(p));
-              }}
-            >
-              {partLabel(p)}
-            </button>
-          ))}
-        </div>
-      )}
-
-      <div className="grow" />
-      <button type="button" className="cta" onClick={target ? () => show() : done} disabled={phase === "checking"}>
-        {target ? "Show me" : kind === "verify" ? "Done, check me" : "Done, next →"}
+      <button
+        type="button"
+        className={`cta${phase === "correct" ? " auto" : ""}`}
+        onClick={phase === "correct" ? () => proceed(progress) : done}
+        disabled={phase === "checking"}
+      >
+        {phase === "checking"
+          ? "Checking…"
+          : phase === "correct"
+            ? progress.step >= total - 1
+              ? "Finish"
+              : "Next step →"
+            : phase === "fix"
+              ? "Check again"
+              : kind === "verify"
+                ? "Check my step"
+                : "Done"}
       </button>
       <div className="row3">
-        <button type="button" className="secondary done" onClick={done} disabled={phase === "checking"}>
-          {phase === "checking" ? "Checking…" : kind === "verify" ? "✓ Done, check" : "✓ Done"}
-        </button>
         <button type="button" className="secondary" onClick={() => setHelp(true)}>
           I&apos;m lost
+        </button>
+        <button type="button" className="secondary" onClick={advance}>
+          Skip step
         </button>
         <button
           type="button"
@@ -396,49 +474,6 @@ export default function BuildPage() {
           onBack={() => goTo(progress.step - 1)}
           onSkip={advance}
         />
-      )}
-
-      {phase === "correct" && (
-        <div className="overlay-screen mint" role="dialog" aria-label="Step correct">
-          <div className="confetti" aria-hidden="true">
-            {Array.from({ length: 14 }, (_, i) => (
-              <span key={i} style={{ left: `${(i * 37) % 100}%`, animationDelay: `${(i % 7) * 0.08}s` }} />
-            ))}
-          </div>
-          <span className="stamp">✓ CHECKED</span>
-          <Timber pose={earned.firstTry ? "celebrate" : "thumbs"} size={150} />
-          <h2 className="title huge">Solid.</h2>
-          <p className="hand big">{check?.reply || "Look at you, total foreman."}</p>
-          <div className="stats">
-            <span className="sticker">+{earned.xp} xp</span>
-            <span className="sticker hi">{earned.firstTry ? "★ first try" : "fixed it"}</span>
-            {progress.streak > 1 && <span className="sticker">streak {progress.streak}</span>}
-          </div>
-          <button type="button" className="primary" onClick={advance}>
-            {progress.step >= total - 1 ? "Finish" : "Next step →"}
-          </button>
-        </div>
-      )}
-
-      {phase === "fix" && (
-        <div className="overlay-sheet" role="dialog" aria-label="Needs a fix">
-          <div className="fix-card">
-            <Timber pose="oops" size={64} />
-            <div>
-              <h2 className="title">Almost.</h2>
-              <p>{check?.problem}</p>
-              {check?.fix && <p className="hand">{check.fix}</p>}
-            </div>
-          </div>
-          <div className="row">
-            <button type="button" className="secondary" onClick={() => setPhase("work")}>
-              Show me again
-            </button>
-            <button type="button" className="primary" onClick={verify}>
-              Fixed it, check again
-            </button>
-          </div>
-        </div>
       )}
     </main>
   );

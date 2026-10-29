@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 
-const FRAME_MS = 450;
+const FRAME_MS = 2400;
 
 export default function Replay({ frames }: { frames: string[] }) {
   const [index, setIndex] = useState(0);
@@ -18,14 +18,21 @@ export default function Replay({ frames }: { frames: string[] }) {
 
   return (
     <section className="replay" aria-label="Build replay">
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src={frames[Math.min(index, frames.length - 1)]} alt={`Step ${index + 1} of your build`} />
-      <span className="chip">Build replay</span>
+      {frames.map((src, i) => (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img key={i} src={src} alt={i === index ? `Step ${i + 1} of your build` : ""} className={i === index ? "on" : ""} />
+      ))}
+      {index > 0 && <span key={index} className="replay-ring" aria-hidden="true" />}
+      <span className="chip">
+        Build replay · step {index + 1}
+      </span>
       <button type="button" className="round play" aria-label={playing ? "Pause replay" : "Play replay"} onClick={() => setPlaying((p) => !p)}>
         {playing ? "❚❚" : "▶"}
       </button>
       <span className="replay-bar" aria-hidden="true">
-        <span style={{ width: `${((index + 1) / frames.length) * 100}%` }} />
+        {frames.map((_, i) => (
+          <span key={i} className={i <= index ? "on" : ""} />
+        ))}
       </span>
     </section>
   );

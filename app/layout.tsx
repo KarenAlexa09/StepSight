@@ -4,7 +4,9 @@ import "./globals.css";
 import "./v2.css";
 import "./fx.css";
 import "./v3.css";
+import "./v4.css";
 import Shell from "../components/Shell";
+import TabBar from "../components/TabBar";
 
 const sans = DM_Sans({ subsets: ["latin"], variable: "--font-sans" });
 const serif = Fraunces({ subsets: ["latin"], weight: ["500", "600"], variable: "--font-serif" });
@@ -23,6 +25,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en" className={`${sans.variable} ${serif.variable} ${mono.variable} ${hand.variable}`}>
       <body>
         {children}
+        <TabBar />
         <Shell />
       </body>
     </html>

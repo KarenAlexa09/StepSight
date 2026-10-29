@@ -1,7 +1,10 @@
+import { limited } from "../../../lib/limit";
 import { speak } from "../../../lib/voice";
 
-// shortcut: no auth or rate limit, same as /api/segment; add both before sharing the link publicly.
+// shortcut: rate limit only, no auth; add auth before sharing the link publicly.
 export async function POST(req: Request) {
+  const blocked = limited(req);
+  if (blocked) return blocked;
   const { text } = await req.json().catch(() => ({}));
   if (typeof text !== "string" || !text.trim() || text.length > 400) {
     return Response.json({ error: "Send up to 400 characters." }, { status: 400 });
