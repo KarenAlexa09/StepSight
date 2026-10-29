@@ -1,4 +1,4 @@
-// Fish Audio library voice "Verity" (energetic young male).
+// Fish Audio library voice for Timber: soft, neutral and cheerful.
 const TIMBER_VOICE = "c333c7de8a71474bb6091f65be538734";
 
 export async function transcribe(wav: Blob): Promise<string> {
@@ -28,7 +28,7 @@ export async function speak(text: string): Promise<Response> {
       "Content-Type": "application/json",
       model: "s2.1-pro-free",
     },
-    body: JSON.stringify({ text, format: "mp3", reference_id: TIMBER_VOICE }),
+    body: JSON.stringify({ text, format: "mp3", reference_id: TIMBER_VOICE, temperature: 0.4, top_p: 0.5 }),
   });
   if (!res.ok || !res.body) throw new Error(`Fish ${res.status}: ${await res.text()}`);
   return res;

@@ -1,3 +1,4 @@
+import { limited } from "../../../lib/limit";
 import { segment, segmentBox } from "../../../lib/sam";
 import { locate } from "../../../lib/spark";
 
@@ -5,8 +6,10 @@ const IMAGE = /^data:image\/(jpeg|png|webp);base64,/;
 const MAX_IMAGE_CHARS = 8_000_000;
 const isSize = (n: unknown) => Number.isInteger(n) && (n as number) > 0 && (n as number) <= 4096;
 
-// shortcut: no auth or rate limit, so anyone with the URL can spend API credit; add both before sharing the link publicly.
+// shortcut: rate limit only, no auth; add auth before sharing the link publicly.
 export async function POST(req: Request) {
+  const blocked = limited(req);
+  if (blocked) return blocked;
   const { image, prompt, width, height } = await req.json().catch(() => ({}));
 
   if (typeof image !== "string" || !IMAGE.test(image) || image.length > MAX_IMAGE_CHARS) {

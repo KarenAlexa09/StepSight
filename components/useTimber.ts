@@ -8,10 +8,13 @@ import { recordingToWav } from "../lib/wav";
 
 const MAX_RECORDING_MS = 5000;
 
+const lines = new Map<string, string>();
+
 export type StepContext = { instruction: string; parts: string[] };
 
 export function useTimber(onIntent: (intent: Intent) => void, step?: StepContext) {
   const audio = useRef<HTMLAudioElement | null>(null);
+  const turn = useRef(0);
   const recorder = useRef<MediaRecorder | null>(null);
   const [listening, setListening] = useState(false);
   const [thinking, setThinking] = useState(false);
@@ -19,15 +22,22 @@ export function useTimber(onIntent: (intent: Intent) => void, step?: StepContext
 
   async function say(text: string) {
     if (!getSettings().sound || !text) return;
+    const mine = ++turn.current;
+    audio.current?.pause();
     try {
-      const res = await fetch("/api/speak", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text }),
-      });
-      if (!res.ok || !getSettings().sound) return;
-      audio.current?.pause();
-      audio.current = new Audio(URL.createObjectURL(await res.blob()));
+      let url = lines.get(text);
+      if (!url) {
+        const res = await fetch("/api/speak", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ text }),
+        });
+        if (!res.ok) return;
+        url = URL.createObjectURL(await res.blob());
+        lines.set(text, url);
+      }
+      if (mine !== turn.current || !getSettings().sound) return;
+      audio.current = new Audio(url);
       await audio.current.play();
     } catch {}
   }

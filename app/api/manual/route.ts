@@ -1,10 +1,13 @@
+import { limited } from "../../../lib/limit";
 import { checkReading, startReading, type Mode, type Source } from "../../../lib/manual";
 import { identify } from "../../../lib/spark";
 
 const IMAGE = /^data:image\/(jpeg|png|webp);base64,/;
 
-// shortcut: no auth or rate limit, same as /api/segment; add both before sharing the link publicly.
+// shortcut: rate limit only, no auth; add auth before sharing the link publicly.
 export async function POST(req: Request) {
+  const blocked = limited(req);
+  if (blocked) return blocked;
   const { url, query, image, mode: rawMode } = await req.json().catch(() => ({}));
   const mode: Mode = rawMode === "fix" ? "fix" : "build";
 
