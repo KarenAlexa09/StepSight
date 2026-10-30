@@ -48,6 +48,12 @@ export const ES: Record<string, string> = {
   "CONTINUE · STEP {n} OF {total}": "SEGUIR · PASO {n} DE {total}",
 
   // Wizard
+  "Reading what you said…": "Leyendo lo que dijiste…",
+  "Tell me a bit more": "Cuéntame un poco más",
+  "Type your answer": "Escribe tu respuesta",
+  "Search with what I have": "Buscar con lo que tengo",
+  "Searching for your manual": "Buscando tu manual",
+  "Searching the web and reading it": "Buscando en la web y leyéndolo",
   "Plan ready": "Plan listo",
   "Taking a look…": "Echando un vistazo…",
   "Timber is figuring out what you need.": "Timber está entendiendo qué necesitas.",

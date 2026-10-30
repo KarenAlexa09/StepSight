@@ -56,20 +56,35 @@ export async function locate(
   return result.right - result.left > 2 && result.bottom - result.top > 2 ? result : null;
 }
 
-export type Understood = { clear: boolean; name: string; mode: "build" | "fix"; issue: string };
+export type Turn = { role: "you" | "timber"; text: string };
+export type Understood = {
+  clear: boolean;
+  ready: boolean;
+  name: string;
+  mode: "build" | "fix";
+  issue: string;
+  question: string;
+  options: string[];
+};
 
-export async function understand(said: string, image?: string): Promise<Understood> {
+export async function understand(said: string, image?: string, history: Turn[] = [], lang: Lang = "en"): Promise<Understood> {
+  const talk = history.map((turn) => `${turn.role === "you" ? "Person" : "Timber"}: ${turn.text}`).join("\n");
   return ask<Understood>(
     [
       {
         type: "input_text",
         text:
-          "Someone wants help with a physical task. From what they said and the photo, if any: " +
-          "clear: true only if you can tell which product or object it is. " +
-          "name: its most specific name as you can tell (brand and model if visible, otherwise a plain description like 'bicycle chain'), max 8 words. " +
-          "mode: 'fix' if it is broken, loose or open for repair, otherwise 'build' (assemble, set up or use it). " +
-          "issue: if mode is fix, what is wrong in a few words; otherwise empty." +
-          (said ? ` They said: "${said}"` : ""),
+          "You are Timber, a friendly beaver who helps people build and fix things. Someone wants help with a physical task. " +
+          "Use what they said, the conversation so far and the photo, if any. " +
+          "clear: true only if you can tell which kind of product or object it is. " +
+          "name: its most specific name from everything you know (brand and model if known, otherwise a plain description like 'bicycle chain'), max 8 words. " +
+          "mode: 'fix' for anything repair, replacement of a part, maintenance or troubleshooting (a broken thing, a dead bulb, a clogged drain), otherwise 'build' (assemble, install, set up or use something new). " +
+          "issue: if mode is fix, what is wrong in a few words; otherwise empty. " +
+          "ready: true only when you know the specific product (brand and model, or a common product that needs no model) AND what the person wants done with it (what is wrong, or what to build or set up). " +
+          "If not ready, question is ONE short friendly question asking the single most useful missing detail (brand, model, or what exactly is wrong), and options are up to 4 short likely answers; otherwise question is empty and options is empty. " +
+          `Write question and options in ${SPEAK[lang]}.` +
+          (talk ? `\nConversation so far:\n${talk}` : "") +
+          (said ? `\nThe person just said: "${said}"` : ""),
       },
       ...(image ? [{ type: "input_image", image_url: image }] : []),
     ],
@@ -77,12 +92,15 @@ export async function understand(said: string, image?: string): Promise<Understo
     {
       type: "object",
       additionalProperties: false,
-      required: ["clear", "name", "mode", "issue"],
+      required: ["clear", "ready", "name", "mode", "issue", "question", "options"],
       properties: {
         clear: { type: "boolean" },
+        ready: { type: "boolean" },
         name: { type: "string" },
         mode: { type: "string", enum: ["build", "fix"] },
         issue: { type: "string" },
+        question: { type: "string" },
+        options: { type: "array", items: { type: "string" } },
       },
     },
   );

@@ -84,7 +84,7 @@ export default function Home() {
   const steps = manual?.steps.length ?? 0;
   const current = Math.min((progress?.step ?? 0) + 1, steps);
   const finished = Boolean(progress?.finishedAt);
-  const busy = dictation.listening || dictation.transcribing;
+  const busy = dictation.listening || dictation.transcribing || opening;
 
   return (
     <main className="screen paper home">
@@ -94,6 +94,7 @@ export default function Home() {
           <button
             type="button"
             className="chip lang"
+            disabled={busy}
             aria-label={lang === "en" ? "Language: English. Switch to Spanish" : "Idioma: español. Cambiar a inglés"}
             onClick={() => setSettings({ lang: lang === "en" ? "es" : "en" })}
           >
@@ -108,9 +109,15 @@ export default function Home() {
           <Timber pose={name === t("Apprentice") ? "wave" : "hardhat"} move="none" size={124} />
         </div>
         <p className="hand">{dictation.listening ? t("Go ahead…") : opening ? t("One sec…") : t("Hi there, {name}!", { name: t(name).toLowerCase() })}</p>
-        <h1 className="title big">{dictation.listening ? t("I’m listening") : dictation.transcribing ? t("Hearing you…") : opening ? t("Opening your photo…") : t("What do you need?")}</h1>
+        <h1 className="title big">{dictation.listening ? t("I’m listening") : dictation.transcribing ? t("Reading what you said…") : opening ? t("Opening your photo…") : t("What do you need?")}</h1>
 
-        {dictation.listening ? (
+        {dictation.transcribing || opening ? (
+          <div className="ask-busy" role="status">
+            <span className="dots" aria-hidden="true"><i /><i /><i /></span>
+            <span>{opening ? t("Opening your photo…") : t("Reading what you said…")}</span>
+            <span className="busy-bar" aria-hidden="true" />
+          </div>
+        ) : dictation.listening ? (
           <div className="ask-wave" aria-hidden="true">
             {BARS.map((h, i) => (
               <span key={i} style={{ height: h, animationDelay: `${i * 70}ms` }} />
@@ -143,7 +150,7 @@ export default function Home() {
           </form>
         )}
 
-        <button type="button" className={`ask-mic${dictation.listening ? " stop" : ""}`} onClick={dictation.toggle} disabled={dictation.transcribing}>
+        <button type="button" className={`ask-mic${dictation.listening ? " stop" : ""}`} onClick={dictation.toggle} disabled={dictation.transcribing || opening}>
           {dictation.listening ? (
             <>
               <span className="ask-stop" />

@@ -7,17 +7,20 @@ import { useEffect, useRef, useState } from "react";
 import SourceTag from "../../components/SourceTag";
 import Timber from "../../components/Timber";
 import { useDictation } from "../../components/useDictation";
+import { useTimber } from "../../components/useTimber";
 import { fileToShot } from "../../lib/image";
 import { takeIntent, type Intent } from "../../lib/intent";
 import type { Manual, Mode } from "../../lib/manual";
 import { clearManual, clearReplay, freshProgress, loadManual, saveManual, saveProgress } from "../../lib/progress";
 import { getSettings } from "../../lib/settings";
-import type { Understood } from "../../lib/spark";
+import type { Turn, Understood } from "../../lib/spark";
 
 const POLL_MS = 3000;
 const GIVE_UP_MS = 8 * 60 * 1000;
 
-type Phase = "understanding" | "confirm" | "unclear" | "reading" | "done";
+type Phase = "understanding" | "ask" | "confirm" | "unclear" | "reading" | "done";
+
+const MAX_QUESTIONS = 3;
 
 const isLink = (text: string) => /^https:\/\/\S+$/.test(text);
 const queryOf = (u: Understood) => (u.mode === "fix" && u.issue ? `${u.name}: ${u.issue}` : u.name).slice(0, 120);
@@ -35,6 +38,10 @@ export default function ManualPage() {
   const [error, setError] = useState("");
   const [elapsed, setElapsed] = useState(0);
   const [renaming, setRenaming] = useState(false);
+  const [chat, setChat] = useState<Turn[]>([]);
+  const [options, setOptions] = useState<string[]>([]);
+  const [reply, setReply] = useState("");
+  const [thinking, setThinking] = useState(false);
   const cancelled = useRef(false);
   const started = useRef(false);
   const retry = useRef<(() => void) | null>(null);
@@ -79,24 +86,47 @@ export default function ManualPage() {
     setPhase("unclear");
   }
 
-  async function run(next: Intent) {
+  async function run(next: Intent, talk: Turn[] = []) {
     setIntent(next);
     setError("");
     retry.current = null;
     const said = next.text?.trim() ?? "";
     if (isLink(said)) return read({ url: said }, "build", said);
-    setPhase("understanding");
+    if (talk.length) setThinking(true);
+    else setPhase("understanding");
     try {
-      const res = await post("/api/understand", next);
+      const res = await post("/api/understand", { ...next, history: talk, lang: getSettings().lang });
       const data: Understood & { error?: string } = await res.json();
       if (!res.ok) throw new Error(data.error);
       setUnderstood(data);
+      setThinking(false);
       if (!data.clear || !data.name.trim()) return setPhase("unclear");
-      if (next.image && !said) return setPhase("confirm");
+      const asked = talk.filter((turn) => turn.role === "timber").length;
+      if (!data.ready && data.question && asked < MAX_QUESTIONS) {
+        const before = talk.length ? talk : said ? [{ role: "you" as const, text: said }] : [];
+        setChat([...before, { role: "timber", text: data.question }]);
+        setOptions(data.options);
+        setReply("");
+        setPhase("ask");
+        timber.say(data.question);
+        return;
+      }
+      if (next.image && !said && !talk.length) return setPhase("confirm");
       read({ query: queryOf(data) }, data.mode, data.name);
     } catch (e) {
+      setThinking(false);
       fail(e);
     }
+  }
+
+  function answer(text: string) {
+    const said = text.trim();
+    if (!said || thinking) return;
+    setOptions([]);
+    setReply("");
+    const talk: Turn[] = [...chat, { role: "you", text: said }];
+    setChat(talk);
+    run({ image: intent.image, text: said }, talk);
   }
 
   async function read(body: Record<string, string>, mode: Mode, name: string) {
@@ -139,7 +169,8 @@ export default function ManualPage() {
     }
   }
 
-  const dictation = useDictation((said) => run({ ...intent, text: said }), setError, 8000);
+  const timber = useTimber(() => {});
+  const dictation = useDictation((said) => (phase === "ask" ? answer(said) : run({ ...intent, text: said })), setError, 8000);
 
   async function onPhoto(file: File | undefined) {
     if (!file) return;
@@ -156,7 +187,7 @@ export default function ManualPage() {
   }
 
   const busy = dictation.listening || dictation.transcribing;
-  const shown = understood ?? { name: "", mode: "build" as Mode, issue: "", clear: false };
+  const shown: Understood = understood ?? { name: "", mode: "build", issue: "", clear: false, ready: false, question: "", options: [] };
 
   const head = (
     <header className="top">
@@ -184,8 +215,85 @@ export default function ManualPage() {
             <Timber pose="reading" size={96} />
           </div>
           <p className="reading" role="status">
-            {t("Timber is figuring out what you need.")}
+            {t("Timber is figuring out what you need.")} <span className="dots" aria-hidden="true"><i /><i /><i /></span>
           </p>
+          <span className="busy-bar" aria-hidden="true" />
+        </div>
+      )}
+
+      {phase === "ask" && (
+        <div className="controls">
+          <div className="hero">
+            <h1 className="title big">{t("Tell me a bit more")}</h1>
+            <Timber pose="think" size={96} />
+          </div>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          {intent.image && <img className="wiz-photo small" src={intent.image} alt={t("Your photo")} />}
+          <div className="chat" role="log" aria-live="polite">
+            {chat.map((turn, i) => (
+              <p key={i} className={`bubble ${turn.role}`}>
+                {turn.text}
+              </p>
+            ))}
+            {thinking && (
+              <p className="bubble timber" role="status" aria-label={t("Timber is thinking…")}>
+                <span className="dots" aria-hidden="true"><i /><i /><i /></span>
+              </p>
+            )}
+          </div>
+          {!thinking && options.length > 0 && (
+            <div className="chips">
+              {options.map((option) => (
+                <button key={option} type="button" className="ask-chip" disabled={busy} onClick={() => answer(option)}>
+                  {option}
+                </button>
+              ))}
+            </div>
+          )}
+          <form
+            className="ask-field"
+            onSubmit={(e) => {
+              e.preventDefault();
+              answer(reply);
+            }}
+          >
+            <input
+              type="text"
+              value={reply}
+              onChange={(e) => setReply(e.target.value)}
+              placeholder={dictation.listening ? t("Listening…") : t("Type your answer")}
+              aria-label={t("Type your answer")}
+              maxLength={300}
+              disabled={thinking || dictation.transcribing}
+            />
+            <button
+              type="button"
+              className={`ask-send mic${dictation.listening ? " on" : ""}`}
+              aria-label={dictation.listening ? t("Stop listening") : t("Talk to Timber")}
+              onClick={dictation.toggle}
+              disabled={thinking || dictation.transcribing}
+            >
+              <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <rect x="9" y="3" width="6" height="12" rx="3" />
+                <path d="M5 11a7 7 0 0 0 14 0M12 18v3" />
+              </svg>
+            </button>
+            <button type="submit" className="ask-send" aria-label={t("Send")} disabled={!reply.trim() || thinking}>
+              <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M5 12h14M13 6l6 6-6 6" />
+              </svg>
+            </button>
+          </form>
+          {dictation.transcribing && (
+            <p className="reading" role="status">
+              {t("Reading what you said…")} <span className="dots" aria-hidden="true"><i /><i /><i /></span>
+            </p>
+          )}
+          {understood?.name && (
+            <button type="button" className="secondary" disabled={thinking || busy} onClick={() => read({ query: queryOf(understood) }, understood.mode, understood.name)}>
+              {t("Search with what I have")}
+            </button>
+          )}
         </div>
       )}
 
@@ -243,13 +351,13 @@ export default function ManualPage() {
             {error || t("Get a bit closer and add more light, or just tell me what it is.")}
           </p>
           {error && retry.current && (
-            <button type="button" className="primary" onClick={retry.current}>
+            <button type="button" className="primary" onClick={retry.current} disabled={busy}>
               {t("Try again")}
             </button>
           )}
           <label className={`${error && retry.current ? "secondary" : "primary"} upload`}>
             {t("Retake the photo")}
-            <input type="file" accept="image/*" capture="environment" onChange={(e) => onPhoto(e.target.files?.[0])} />
+            <input type="file" accept="image/*" capture="environment" disabled={busy} onChange={(e) => onPhoto(e.target.files?.[0])} />
           </label>
           {voice}
           <Link href="/#ask" className="secondary">
@@ -261,7 +369,7 @@ export default function ManualPage() {
       {phase === "reading" && target && (
         <div className="controls">
           <div className="hero">
-            <h1 className="title big">{t("Finding your manual")}</h1>
+            <h1 className="title big">{t("Searching for your manual")}</h1>
             <Timber pose="reading" size={96} />
           </div>
           <div className="wiz-card">
@@ -272,8 +380,9 @@ export default function ManualPage() {
               {t("Not this? Change it")}
             </Link>
           </div>
+          <span className="busy-bar" aria-hidden="true" />
           <p className="reading">
-            <span role="status">{t("Reading it now")}</span>
+            <span role="status">{t("Searching the web and reading it")}</span> <span className="dots" aria-hidden="true"><i /><i /><i /></span>
             <span aria-hidden="true"> · {elapsed < 60 ? `${elapsed} s` : `${Math.floor(elapsed / 60)} min ${elapsed % 60} s`}</span>
             <br />
             <span className="tip">{t("This takes 1–3 minutes. Keep this screen open.")}</span>
