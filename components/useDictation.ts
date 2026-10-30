@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { tr } from "../lib/i18n";
 import { play } from "../lib/sound";
 import { recordingToWav } from "../lib/wav";
 
@@ -32,9 +33,9 @@ export function useDictation(onText: (text: string) => void | Promise<void>, onE
           const data = await res.json();
           if (!res.ok) throw new Error(data.error);
           if (data.transcript) await onText(data.transcript);
-          else onError("Didn't catch that");
+          else onError(tr("Didn't catch that"));
         } catch (error) {
-          onError(error instanceof Error && error.message ? error.message : "Couldn't hear that");
+          onError(error instanceof Error && error.message ? tr(error.message) : tr("Couldn't hear that"));
         } finally {
           setTranscribing(false);
         }
@@ -44,7 +45,7 @@ export function useDictation(onText: (text: string) => void | Promise<void>, onE
       setListening(true);
       setTimeout(() => rec.state === "recording" && rec.stop(), maxMs);
     } catch {
-      onError("Allow the microphone to talk to Timber");
+      onError(tr("Allow the microphone to talk to Timber"));
     }
   }
 

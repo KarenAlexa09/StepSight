@@ -1,9 +1,10 @@
 "use client";
 
+import { tr, useT } from "../lib/i18n";
 import { useEffect, useImperativeHandle, useRef, useState, type CSSProperties, type Ref } from "react";
 import { maskTransform, toShot, type Shot } from "../lib/image";
 import type { Motion } from "../lib/manual";
-import type { Match } from "../lib/sam";
+import type { Box, Match } from "../lib/sam";
 import { play } from "../lib/sound";
 
 const SAMPLE_WIDTH = 32;
@@ -53,10 +54,10 @@ function difference(a: Uint8ClampedArray, b: Uint8ClampedArray) {
 const center = (m: Match) => [(m.bounds.left + m.bounds.right) / 2, (m.bounds.top + m.bounds.bottom) / 2] as const;
 
 function labelOf(motion: Motion | undefined) {
-  if (motion?.type === "connect" && motion.to) return `Attach to the ${motion.to}`;
-  if (motion?.type === "move" && motion.direction) return `Move it ${motion.direction}`;
-  if (motion?.type === "remove") return "Take this off";
-  return "This one";
+  if (motion?.type === "connect" && motion.to) return tr("Attach to the {to}", { to: motion.to });
+  if (motion?.type === "move" && motion.direction) return tr("Move it {dir}", { dir: tr(motion.direction) });
+  if (motion?.type === "remove") return tr("Take this off");
+  return tr("This one");
 }
 
 function vectorOf(s: Snapshot): [number, number] | null {
@@ -90,10 +91,19 @@ function cropOf(s: Snapshot, vec: [number, number] | null) {
   return `${x} ${y} ${Math.min(s.width, right + pad) - x} ${Math.min(s.height, bottom + pad) - y}`;
 }
 
-function Arrow({ from, vec, unit }: { from: readonly [number, number]; vec: [number, number]; unit: number }) {
-  const [x, y] = from;
-  const [tx, ty] = [x + vec[0], y + vec[1]];
-  const angle = Math.atan2(vec[1], vec[0]);
+const reach = (box: Box, ux: number, uy: number) =>
+  Math.min(ux ? (box.right - box.left) / 2 / Math.abs(ux) : Infinity, uy ? (box.bottom - box.top) / 2 / Math.abs(uy) : Infinity);
+
+function Arrow({ from, vec, unit, src, dst }: { from: readonly [number, number]; vec: [number, number]; unit: number; src: Box; dst?: Box }) {
+  const length = Math.hypot(vec[0], vec[1]) || 1;
+  const [ux, uy] = [vec[0] / length, vec[1] / length];
+  const gap = unit * 1.5;
+  const begin = reach(src, ux, uy) + gap;
+  const end = length - (dst ? reach(dst, ux, uy) + gap : 0);
+  if (end - begin < unit * 4) return null;
+  const [x, y] = [from[0] + ux * begin, from[1] + uy * begin];
+  const [tx, ty] = [from[0] + ux * end, from[1] + uy * end];
+  const angle = Math.atan2(uy, ux);
   const head = unit * 5;
   const point = (a: number) => `${tx - head * Math.cos(angle + a)},${ty - head * Math.sin(angle + a)}`;
   return (
@@ -119,6 +129,7 @@ export default function CameraStage({
   demo?: string;
   onStatus: (status: string) => void;
 }) {
+  const t = useT();
   const videoRef = useRef<HTMLVideoElement>(null);
   const photoRef = useRef<HTMLImageElement>(null);
   const sampler = useRef<CanvasRenderingContext2D | null>(null);
@@ -199,14 +210,14 @@ export default function CameraStage({
     setSnapshot(null);
     const shot = capture();
     if (!shot) {
-      onStatus(photo ? "Image isn't ready yet" : "Camera isn't ready yet");
+      onStatus(photo ? t("Image isn't ready yet") : t("Camera isn't ready yet"));
       return 0;
     }
     const reference = photo ? null : sample();
     busy.current = true;
     setSearching(true);
     setMoving(false);
-    onStatus(`Looking for ${target}…`);
+    onStatus(t("Looking for {target}…", { target }));
     play("whoosh");
     try {
       const wantsDest = motion?.type === "connect" && motion.to;
@@ -216,7 +227,7 @@ export default function CameraStage({
       ]);
       const seconds = (data.ms / 1000).toFixed(1);
       if (data.matches.length === 0) {
-        onStatus(`No ${target} here · ${seconds} s`);
+        onStatus(t("No {target} here · {s} s", { target, s: seconds }));
         return 0;
       }
       const next: Snapshot = {
@@ -230,10 +241,10 @@ export default function CameraStage({
       };
       setSnapshot(next);
       setMemo(next);
-      onStatus(`${data.via === "sam" ? "Found it" : "Found it, looked closer"} · ${seconds} s`);
+      onStatus(`${data.via === "sam" ? t("Found it") : t("Found it, looked closer")} · ${seconds} s`);
       return data.matches.length;
     } catch (error) {
-      onStatus(error instanceof Error && error.message ? error.message : "Something went wrong");
+      onStatus(error instanceof Error && error.message ? t(error.message) : t("Something went wrong"));
       return 0;
     } finally {
       busy.current = false;
@@ -244,7 +255,7 @@ export default function CameraStage({
   function loadPhoto(file: File) {
     setSnapshot(null);
     setPhoto(URL.createObjectURL(file));
-    onStatus("Photo loaded");
+    onStatus(t("Photo loaded"));
   }
 
   function replay() {
@@ -270,7 +281,7 @@ export default function CameraStage({
       lastSample.current = current;
 
       if (snapshot?.reference) {
-        // A shaky hand moves the frame a little all the time; only a big, sustained move means "new spot".
+        // A shaky hand moves the frame a little all the time; only a big, sustained move means t("new spot").
         const moved = Date.now() - snapshot.key > MIN_SNAPSHOT_MS && difference(snapshot.reference, current) > MOVED;
         movedTicks.current = moved ? movedTicks.current + 1 : 0;
         if (movedTicks.current >= MOVED_TICKS) {
@@ -278,7 +289,7 @@ export default function CameraStage({
           steadyTicks.current = 0;
           setSnapshot(null);
           setMoving(true);
-          onStatus("Hold steady…");
+          onStatus(t("Hold steady…"));
         }
         return;
       }
@@ -300,19 +311,19 @@ export default function CameraStage({
     <div className={`stage fill${snapshot ? " frozen" : ""}`}>
       {photo ? (
         // eslint-disable-next-line @next/next/no-img-element
-        <img ref={photoRef} src={photo} alt="Your uploaded photo" className="media photo" />
+        <img ref={photoRef} src={photo} alt={t("Your uploaded photo")} className="media photo" />
       ) : (
         <video ref={videoRef} autoPlay playsInline muted className="media" style={{ opacity: snapshot ? 0 : 1 }} />
       )}
       {snapshot && !photo && (
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={snapshot.image} alt="Snapshot of your table" className="media" />
+        <img src={snapshot.image} alt={t("Snapshot of your table")} className="media" />
       )}
       {searching && <span className="scan" aria-hidden="true" />}
       {snapshot && <FoundIt key={snapshot.key} snapshot={snapshot} />}
       {snapshot && (
         <button type="button" className="back-live" onClick={() => setSnapshot(null)}>
-          {photo ? "Close" : "Back to camera"}
+          {photo ? t("Close") : t("Back to camera")}
         </button>
       )}
       {memo && !snapshot && (
@@ -329,15 +340,23 @@ export default function CameraStage({
               <path key={m.id} d={m.path} transform={maskTransform(m)} className="mask" vectorEffect="non-scaling-stroke" />
             ))}
             {memo.dest && <DestBox match={memo.dest} unit={Math.max(memo.width, memo.height) / 100} />}
-            {memoVec && <Arrow from={center(memo.matches[0])} vec={memoVec} unit={Math.max(memo.width, memo.height) / 100} />}
+            {memoVec && (
+              <Arrow
+                from={center(memo.matches[0])}
+                vec={memoVec}
+                unit={Math.max(memo.width, memo.height) / 100}
+                src={memo.matches[0].bounds}
+                dst={memo.motion?.type === "connect" ? memo.dest?.bounds : undefined}
+              />
+            )}
           </svg>
           <span>▶ {memo.label}</span>
         </button>
       )}
-      {moving && !snapshot && <p className="steady">Hold steady…</p>}
+      {moving && !snapshot && <p className="steady">{t("Hold steady…")}</p>}
       {cameraError && !photo && (
         <label className="hint upload">
-          No camera here. <u>Upload a photo</u>
+          {t("No camera here.")} <u>{t("Upload a photo")}</u>
           <input type="file" accept="image/*" onChange={(e) => e.target.files?.[0] && loadPhoto(e.target.files[0])} />
         </label>
       )}
@@ -354,6 +373,7 @@ function DestBox({ match, unit }: { match: Match; unit: number }) {
 }
 
 function FoundIt({ snapshot }: { snapshot: Snapshot }) {
+  const tx = useT();
   const { width, height, matches, image, key, dest, motion, label } = snapshot;
   const first = matches[0];
   const { left, top, right, bottom } = first.bounds;
@@ -446,7 +466,7 @@ function FoundIt({ snapshot }: { snapshot: Snapshot }) {
         {vec && (
           <>
             <g className="late-in">
-              <Arrow from={[cx, cy]} vec={vec} unit={unit} />
+              <Arrow from={[cx, cy]} vec={vec} unit={unit} src={first.bounds} dst={connects ? dest?.bounds : undefined} />
             </g>
             <g className={`travel fx ${motion?.type ?? ""}`} style={travel ?? undefined}>
               <image href={image} width={width} height={height} clipPath={`url(#cut-${key})`} />
@@ -480,8 +500,8 @@ function FoundIt({ snapshot }: { snapshot: Snapshot }) {
           />
         ))}
       </svg>
-      <p className="grab fx">grab this one!</p>
-      {connects && <p className="click-fx fx">CLICK!</p>}
+      <p className="grab fx">{tx("grab this one!")}</p>
+      {connects && <p className="click-fx fx">{tx("CLICK!")}</p>}
       <p className="action-chip">{label}</p>
     </>
   );

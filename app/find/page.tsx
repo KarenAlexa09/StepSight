@@ -1,5 +1,6 @@
 "use client";
 
+import { useT } from "../../lib/i18n";
 import Link from "next/link";
 import { useRef, useState } from "react";
 import AskBar from "../../components/AskBar";
@@ -8,6 +9,7 @@ import { useTimber } from "../../components/useTimber";
 import type { Intent } from "../../lib/spark";
 
 export default function FindPage() {
+  const t = useT();
   const camera = useRef<CameraHandle>(null);
   const [status, setStatus] = useState("Point the camera and ask for anything");
   const [target, setTarget] = useState("");
@@ -25,18 +27,18 @@ export default function FindPage() {
   return (
     <main className="screen paper">
       <header className="top">
-        <Link href="/" className="round" aria-label="Home">
+        <Link href="/" className="round" aria-label={t("Home")}>
           ←
         </Link>
-        <span className="chip">Find anything</span>
+        <span className="chip">{t("Find anything")}</span>
       </header>
 
       <CameraStage ref={camera} live={live && !!target} autoTarget={target} onStatus={setStatus} />
       <p className="status" role="status">
-        {status}
+        {t(status)}
       </p>
 
-      <AskBar timber={timber} placeholder='"Where is the vacuum cleaner?"' />
+      <AskBar timber={timber} placeholder={t('"Where is the vacuum cleaner?"')} />
 
       <div className="row">
         <button
@@ -46,14 +48,14 @@ export default function FindPage() {
           onClick={() => setLive((v) => !v)}
           disabled={!target}
         >
-          {live ? "Stop live" : target ? "Live" : "Live (ask first)"}
+          {live ? t("Stop live") : target ? t("Live") : t("Live (ask first)")}
         </button>
         <label className="secondary upload">
-          Photo
+          {t("Photo")}
           <input type="file" accept="image/*" onChange={(e) => e.target.files?.[0] && camera.current?.loadPhoto(e.target.files[0])} />
         </label>
       </div>
-      {live && <p className="tip">Hold the phone still for a second and Timber looks again.</p>}
+      {live && <p className="tip">{t("Hold the phone still for a second and Timber looks again.")}</p>}
     </main>
   );
 }
