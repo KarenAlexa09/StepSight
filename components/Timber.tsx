@@ -1,4 +1,4 @@
-export type Pose = "wave" | "reading" | "point" | "think" | "thumbs" | "oops" | "celebrate" | "hardhat";
+export type Pose = "wave" | "reading" | "point" | "think" | "thumbs" | "oops" | "celebrate" | "hardhat" | "lean";
 export type Move = "bob" | "hop" | "wiggle" | "pop" | "none";
 
 const DEFAULT_MOVE: Record<Pose, Move> = {
@@ -10,6 +10,7 @@ const DEFAULT_MOVE: Record<Pose, Move> = {
   oops: "wiggle",
   celebrate: "hop",
   hardhat: "bob",
+  lean: "none",
 };
 
 export default function Timber({

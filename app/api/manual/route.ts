@@ -1,19 +1,15 @@
 import { limited } from "../../../lib/limit";
 import { checkReading, startReading, type Mode, type Source } from "../../../lib/manual";
-import { identify } from "../../../lib/spark";
-
-const IMAGE = /^data:image\/(jpeg|png|webp);base64,/;
 
 // shortcut: rate limit only, no auth; add auth before sharing the link publicly.
 export async function POST(req: Request) {
   const blocked = limited(req);
   if (blocked) return blocked;
-  const { url, query, image, mode: rawMode } = await req.json().catch(() => ({}));
+  const { url, query, mode: rawMode, lang } = await req.json().catch(() => ({}));
   const mode: Mode = rawMode === "fix" ? "fix" : "build";
 
   try {
     let source: Source;
-    let identified: string | undefined;
 
     if (typeof url === "string") {
       let parsed: URL | null = null;
@@ -26,15 +22,11 @@ export async function POST(req: Request) {
       source = { kind: "pdf", url: parsed.href };
     } else if (typeof query === "string" && query.trim() && query.length <= 120) {
       source = { kind: "search", query: query.trim(), mode };
-    } else if (typeof image === "string" && IMAGE.test(image) && image.length <= 8_000_000) {
-      const { name, issue } = await identify(image);
-      identified = name;
-      source = { kind: "search", query: mode === "fix" && issue ? `${name}: ${issue}` : name, mode };
     } else {
-      return Response.json({ error: "Send a photo, a product name or a PDF link." }, { status: 400 });
+      return Response.json({ error: "Send a product name or a PDF link." }, { status: 400 });
     }
 
-    return Response.json({ id: await startReading(source), identified, mode });
+    return Response.json({ id: await startReading(source, lang === "es" ? "es" : "en"), mode });
   } catch (error) {
     console.error(error);
     return Response.json({ error: "Couldn't start. Try again." }, { status: 502 });

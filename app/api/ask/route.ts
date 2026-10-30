@@ -7,7 +7,7 @@ const isText = (v: unknown, max: number) => typeof v === "string" && v.trim().le
 export async function POST(req: Request) {
   const blocked = limited(req);
   if (blocked) return blocked;
-  const { said, step } = await req.json().catch(() => ({}));
+  const { said, step, lang } = await req.json().catch(() => ({}));
   if (!isText(said, 300)) return Response.json({ error: "Say or type something for Timber." }, { status: 400 });
 
   const context =
@@ -16,7 +16,7 @@ export async function POST(req: Request) {
       : undefined;
 
   try {
-    return Response.json(await interpret(said.trim(), context));
+    return Response.json(await interpret(said.trim(), context, lang === "es" ? "es" : "en"));
   } catch (error) {
     console.error(error);
     return Response.json({ error: "Timber didn't get that. Try again." }, { status: 502 });

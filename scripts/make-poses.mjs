@@ -13,13 +13,16 @@ const POSES = {
   oops: "Now with both paws on his cheeks, surprised, small sweat drop, an 'oops' expression.",
   celebrate: "Now cheering happily with both paws raised high, big open smile, a few small sparkles around.",
   hardhat: "Now wearing a bright yellow-green construction hard hat, standing proud with paws on hips.",
+  lean: "Now wearing a bright yellow-green construction hard hat, leaning forward with both forearms resting on a ledge in front of him, chin up, relaxed friendly smile, looking at the viewer. Crop the picture at his waist so only his upper body is visible and the bottom edge is straight and flat.",
 };
 
 await mkdir(OUT, { recursive: true });
 const master = await readFile(MASTER);
 
 await Promise.all(
-  Object.entries(POSES).map(async ([name, change]) => {
+  Object.entries(POSES)
+    .filter(([name]) => !process.argv[2] || name === process.argv[2])
+    .map(async ([name, change]) => {
     const form = new FormData();
     form.append("model", "muse-image-1.0");
     form.append("prompt", BASE + change);

@@ -46,7 +46,7 @@ export default function FindPage() {
           onClick={() => setLive((v) => !v)}
           disabled={!target}
         >
-          {live ? "Stop live" : "Live"}
+          {live ? "Stop live" : target ? "Live" : "Live (ask first)"}
         </button>
         <label className="secondary upload">
           Photo

@@ -53,7 +53,7 @@ export default function TabBar() {
   return (
     <nav className="tabbar" aria-label="Main">
       {TABS.slice(0, 2).map(tab)}
-      <Link href="/manual" className="tab-new" aria-label="New project">
+      <Link href="/#ask" className="tab-new" aria-label="New project">
         <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" aria-hidden="true">
           <path d="M12 5v14M5 12h14" />
         </svg>

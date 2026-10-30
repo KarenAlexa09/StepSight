@@ -14,10 +14,12 @@ export default function DonePage() {
   const [progress, setProgress] = useState<Progress | null>(null);
   const [frames, setFrames] = useState<string[]>([]);
   const [sharing, setSharing] = useState(false);
+  const [ready, setReady] = useState(false);
 
   useEffect(() => {
     const m = loadManual();
     const p = loadProgress();
+    setReady(true);
     setManual(m);
     setProgress(p);
     setFrames(loadReplay());
@@ -42,7 +44,21 @@ export default function DonePage() {
     if (manual) play("level");
   }, [manual]);
 
-  if (!manual || !progress) return <main className="screen paper" />;
+  if (!manual || !progress) {
+    return (
+      <main className="screen paper" aria-busy={!ready}>
+        {ready && (
+          <>
+            <h1 className="title big">Nothing finished yet</h1>
+            <Timber pose="reading" size={96} />
+            <Link href="/#ask" className="primary">
+              Start a project
+            </Link>
+          </>
+        )}
+      </main>
+    );
+  }
 
   const minutes = Math.max(1, Math.round(((progress.finishedAt ?? Date.now()) - progress.startedAt) / 60000));
   const { name, next } = level(progress.xp);
@@ -63,12 +79,14 @@ export default function DonePage() {
         </p>
       </div>
 
-      <div className="done-hero">
-        <Replay frames={frames} />
-        <span className="done-timber">
-          <Timber pose="hardhat" size={112} />
-        </span>
-      </div>
+      {frames.length ? (
+        <div className="done-hero">
+          <span className="done-timber">
+            <Timber pose="lean" size={88} />
+          </span>
+          <Replay frames={frames} />
+        </div>
+      ) : (<div className="grow center"><Timber pose="hardhat" move="none" size={110} /></div>)}
 
       <div className="stat3">
         <span>
@@ -114,7 +132,7 @@ export default function DonePage() {
           setSharing(false);
         }}
       >
-        {sharing ? "…" : "Share my replay"}
+        {sharing ? "Making your card…" : "Share my replay"}
       </button>
       <div className="row">
         <Link href="/gallery" className="secondary">

@@ -8,7 +8,7 @@ const isText = (v: unknown, max: number) => typeof v === "string" && v.trim().le
 export async function POST(req: Request) {
   const blocked = limited(req);
   if (blocked) return blocked;
-  const { image, step } = await req.json().catch(() => ({}));
+  const { image, step, lang } = await req.json().catch(() => ({}));
   if (typeof image !== "string" || !IMAGE.test(image) || image.length > 8_000_000) {
     return Response.json({ error: "Send a JPEG, PNG or WebP image under 6 MB." }, { status: 400 });
   }
@@ -18,7 +18,7 @@ export async function POST(req: Request) {
 
   try {
     const parts = step.parts.filter((p: unknown) => isText(p, 100)).slice(0, 20);
-    return Response.json(await checkStep(image, { instruction: step.instruction, check: step.check, parts }));
+    return Response.json(await checkStep(image, { instruction: step.instruction, check: step.check, parts }, lang === "es" ? "es" : "en"));
   } catch (error) {
     console.error(error);
     return Response.json({ error: "Timber couldn't check that. Try again." }, { status: 502 });

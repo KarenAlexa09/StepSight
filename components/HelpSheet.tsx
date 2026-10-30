@@ -1,13 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { Manual, Step } from "../lib/manual";
 import { setSettings, useSettings, type Settings } from "../lib/settings";
 import AskBar from "./AskBar";
 import Timber from "./Timber";
 import type { useTimber } from "./useTimber";
 
-const SWITCHES: [keyof Settings, string][] = [
+type Switch = Exclude<keyof Settings, "lang">;
+
+const SWITCHES: [Switch, string][] = [
   ["sound", "Sound"],
   ["captions", "Captions for sounds"],
   ["vibration", "Vibration"],
@@ -41,11 +43,24 @@ export default function HelpSheet({
   const settings = useSettings();
   const [asking, setAsking] = useState(false);
   const pageUrl = manual.pdf && step.page > 0 ? `${manual.pdf}#page=${step.page}` : null;
+  const sheet = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const opener = document.activeElement as HTMLElement | null;
+    sheet.current?.focus();
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      opener?.focus();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
-    <div className="help-wrap" role="dialog" aria-label="Help">
-      <button type="button" className="help-dim" aria-label="Close help" onClick={onClose} />
-      <div className="help-sheet">
+    <div className="help-wrap" role="dialog" aria-modal="true" aria-label="Help">
+      <button type="button" className="help-dim" aria-label="Close help" tabIndex={-1} onClick={onClose} />
+      <div ref={sheet} tabIndex={-1} className="help-sheet">
         <span className="grabber" aria-hidden="true" />
         <div className="row-between">
           <h2 className="title">No worries. What helps?</h2>
@@ -94,6 +109,13 @@ export default function HelpSheet({
         </div>
 
         <div className="switches">
+          <div className="seg" role="group" aria-label="Language">
+            {(["en", "es"] as const).map((l) => (
+              <button key={l} type="button" aria-pressed={settings.lang === l} onClick={() => setSettings({ lang: l })}>
+                {l === "en" ? "English" : "Español"}
+              </button>
+            ))}
+          </div>
           {SWITCHES.map(([key, label]) => (
             <button
               key={key}
@@ -113,8 +135,8 @@ export default function HelpSheet({
           <button type="button" className="link" onClick={onBack} disabled={!canBack}>
             ← Go back a step
           </button>
-          <button type="button" className="link" onClick={onSkip}>
-            Skip this step →
+          <button type="button" className="link" onClick={onSkip} disabled={step.safety}>
+            {step.safety ? "Safety step: can't skip" : "Skip this step →"}
           </button>
         </div>
         <button type="button" className="secondary" onClick={onClose}>
