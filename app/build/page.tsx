@@ -320,6 +320,7 @@ export default function BuildPage() {
   const done = kind === "verify" ? verify : completeDo;
 
   const hazardous = Boolean(manual.hazard && manual.hazard !== "none");
+  const locked = phase === "checking" || phase === "correct" || timber.thinking;
 
   if (manual.prep?.length && !progress.prepDone) {
     return (
@@ -490,7 +491,7 @@ export default function BuildPage() {
         type="button"
         className={`cta${phase === "correct" && !held ? " auto" : ""}`}
         onClick={phase === "correct" ? () => proceed(progress) : done}
-        disabled={phase === "checking"}
+        disabled={phase === "checking" || timber.thinking}
       >
         {phase === "checking"
           ? t("Checking…")
@@ -505,10 +506,10 @@ export default function BuildPage() {
                 : t("Done")}
       </button>
       <div className="row3">
-        <button type="button" className="secondary" onClick={() => setHelp(true)}>
+        <button type="button" className="secondary" onClick={() => setHelp(true)} disabled={locked}>
           {t("I'm lost")}
         </button>
-        <button type="button" className="secondary" onClick={advance} disabled={step.safety}>
+        <button type="button" className="secondary" onClick={advance} disabled={step.safety || locked}>
           {step.safety ? t("Safety step") : t("Skip step")}
         </button>
         <button
@@ -517,6 +518,7 @@ export default function BuildPage() {
           aria-label={timber.listening ? t("Stop listening") : t("Talk to Timber")}
           aria-pressed={timber.listening}
           onClick={timber.listen}
+          disabled={phase === "checking" || phase === "correct" || timber.thinking}
         >
           <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" aria-hidden="true">
             <rect x="9" y="3" width="6" height="11" rx="3" />
