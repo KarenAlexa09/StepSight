@@ -10,6 +10,7 @@ import { fileToShot } from "../lib/image";
 import { sendIntent, type Intent } from "../lib/intent";
 import type { Manual } from "../lib/manual";
 import { level, loadManual, loadProgress, type Progress } from "../lib/progress";
+import { setSettings, useSettings } from "../lib/settings";
 
 const AUTO_SEND_MS = 1600;
 const EXAMPLES = ["Build a Kallax shelf", "My bike chain fell off", "Set up a coffee machine"];
@@ -19,11 +20,13 @@ const svg = { viewBox: "0 0 24 24", fill: "none", strokeLinecap: "round", stroke
 
 export default function Home() {
   const router = useRouter();
+  const { lang } = useSettings();
   const [manual, setManual] = useState<Manual | null>(null);
   const [progress, setProgress] = useState<Progress | null>(null);
   const [text, setText] = useState("");
   const [error, setError] = useState("");
   const [pending, setPending] = useState(false);
+  const [opening, setOpening] = useState(false);
   const input = useRef<HTMLInputElement>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
@@ -64,10 +67,13 @@ export default function Home() {
 
   async function onPhoto(file: File | undefined) {
     if (!file) return;
+    setError("");
+    setOpening(true);
     try {
       go({ image: (await fileToShot(file)).image, text: text.trim() || undefined });
     } catch {
       setError("Couldn't open that photo.");
+      setOpening(false);
     }
   }
 
@@ -82,15 +88,25 @@ export default function Home() {
     <main className="screen paper home">
       <header className="top">
         <span className="brand">StepSight</span>
-        <span className="chip hi">★ {xp} xp</span>
+        <span className="row">
+          <button
+            type="button"
+            className="chip lang"
+            aria-label={lang === "en" ? "Language: English. Switch to Spanish" : "Idioma: español. Cambiar a inglés"}
+            onClick={() => setSettings({ lang: lang === "en" ? "es" : "en" })}
+          >
+            {lang === "en" ? "EN" : "ES"}
+          </button>
+          <span className="chip hi">★ {xp} xp</span>
+        </span>
       </header>
 
       <section className="greet">
         <div className="greet-timber">
           <Timber pose={name === "Apprentice" ? "wave" : "hardhat"} move="none" size={124} />
         </div>
-        <p className="hand">{dictation.listening ? "Go ahead…" : `Hi there, ${name.toLowerCase()}!`}</p>
-        <h1 className="title big">{dictation.listening ? "I’m listening" : dictation.transcribing ? "Hearing you…" : "What do you need?"}</h1>
+        <p className="hand">{dictation.listening ? "Go ahead…" : opening ? "One sec…" : `Hi there, ${name.toLowerCase()}!`}</p>
+        <h1 className="title big">{dictation.listening ? "I’m listening" : dictation.transcribing ? "Hearing you…" : opening ? "Opening your photo…" : "What do you need?"}</h1>
 
         {dictation.listening ? (
           <div className="ask-wave" aria-hidden="true">
@@ -100,7 +116,7 @@ export default function Home() {
           </div>
         ) : (
           <form className="ask-field" onSubmit={onSubmit}>
-            <label className="ask-cam" aria-label="Use a photo">
+            <label className="ask-cam" aria-label="Use a photo" aria-busy={opening}>
               <svg {...svg} width="24" height="24" stroke="currentColor" strokeWidth="2.2">
                 <path d="M4 8h3l2-3h6l2 3h3v11H4z" />
                 <circle cx="12" cy="13" r="3.5" />
@@ -183,6 +199,16 @@ export default function Home() {
                 }}
               >
                 Try the demo
+              </button>
+              <button
+                type="button"
+                className="ask-chip dashed"
+                onClick={() => {
+                  startDemo("lamp");
+                  router.push("/build");
+                }}
+              >
+                Try the repair demo
               </button>
             </div>
           </section>

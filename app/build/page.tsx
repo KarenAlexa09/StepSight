@@ -7,6 +7,7 @@ import ActionIcon from "../../components/ActionIcon";
 import { demoPhoto } from "../../lib/demo";
 import CameraStage, { type CameraHandle } from "../../components/CameraStage";
 import HelpSheet from "../../components/HelpSheet";
+import SourceTag from "../../components/SourceTag";
 import Timber from "../../components/Timber";
 import { useTimber } from "../../components/useTimber";
 import { cropBox, thumb, type Shot } from "../../lib/image";
@@ -22,7 +23,7 @@ import {
   XP_STEP,
   type Progress,
 } from "../../lib/progress";
-import { setSettings, useSettings } from "../../lib/settings";
+import { getSettings, setSettings, useSettings } from "../../lib/settings";
 import { play } from "../../lib/sound";
 import type { Check, Intent } from "../../lib/spark";
 
@@ -33,6 +34,7 @@ const kindOf = (s: Step) => s.kind ?? "verify";
 const targetOf = (s: Step) => s.target?.trim() || (s.parts[0] ? partPrompt(s.parts[0]) : "");
 const partLabel = (p: Part) => `${p.quantity}× ${p.color} ${p.name}`.replace("  ", " ");
 const AUTO_MS = 1600;
+const AUTO_SLOW_MS = 2800;
 
 function kicker(s: Step) {
   const type = s.motion?.type;
@@ -41,6 +43,14 @@ function kicker(s: Step) {
   if (type === "remove") return "TAKE OFF";
   return { do: "DO IT", find: "FIND IT", verify: "BUILD" }[kindOf(s)];
 }
+
+const HAZARD_TEXT = {
+  none: "",
+  electric: "Power is the risk here. Unplug it before anything else.",
+  gas: "Gas is the risk here. Turn it off before anything else.",
+  sharp: "Sharp edges. Take your time and keep your fingers clear.",
+  heavy: "This is heavy. Get a second pair of hands before you lift.",
+};
 
 export default function BuildPage() {
   const router = useRouter();
@@ -60,6 +70,7 @@ export default function BuildPage() {
   const [piece, setPiece] = useState<string | null>(null);
   const [simple, setSimple] = useState("");
   const [empty, setEmpty] = useState(false);
+  const [held, setHeld] = useState(false);
 
   const step = manual && progress ? manual.steps[progress.step] : undefined;
   const timber = useTimber(onIntent, step && { instruction: step.instruction, parts: step.parts.map(partLabel) });
@@ -101,6 +112,7 @@ export default function BuildPage() {
     setCheck(null);
     setSimple("");
     setHelp(false);
+    setHeld(false);
     setStatus(`Step ${i + 1} of ${manual.steps.length}`);
     if (speak) timber.say(s.instruction);
   }
@@ -134,18 +146,20 @@ export default function BuildPage() {
 
   async function verify() {
     if (!step || !progress) return;
+    if (phase === "checking") return;
+    setPhase("checking");
+    setPiece(null);
+    setStatus("Timber is checking your build…");
     if (manual?.demo) {
       setDemoAfter(true);
       await new Promise((r) => setTimeout(r, 600));
     }
     const shot = camera.current?.capture();
     if (!shot) {
+      setPhase("work");
       setStatus("Camera isn't ready yet");
       return;
     }
-    setPhase("checking");
-    setPiece(null);
-    setStatus("Timber is checking your build…");
     try {
       const res = await fetch("/api/verify", {
         method: "POST",
@@ -153,6 +167,7 @@ export default function BuildPage() {
         body: JSON.stringify({
           image: shot.image,
           step: { instruction: step.instruction, check: step.check, parts: step.parts.map(partLabel) },
+          lang: getSettings().lang,
         }),
       });
       const result: Check = await res.json();
@@ -175,7 +190,7 @@ export default function BuildPage() {
         play("success");
         celebrateLevel(progress.xp, xp);
         setPhase("correct");
-        advanceTimer.current = setTimeout(() => proceed(next), AUTO_MS);
+        advanceTimer.current = setTimeout(() => proceed(next), getSettings().slow ? AUTO_SLOW_MS : AUTO_MS);
       } else {
         update({ ...progress, mistakes: progress.mistakes + 1, streak: 0, triedThisStep: true });
         play("oops");
@@ -204,6 +219,7 @@ export default function BuildPage() {
 
   function startSteps() {
     if (!progress || !manual) return;
+    window.scrollTo(0, 0);
     update({ ...progress, prepDone: true });
     timber.say(manual.steps[progress.step].instruction);
   }
@@ -282,11 +298,26 @@ export default function BuildPage() {
     );
   }
 
-  if (!manual || !progress || !step) return <main className="screen paper" />;
+  if (!manual || !progress || !step) {
+    return (
+      <main className="screen paper build v3" aria-busy="true">
+        <header className="top">
+          <Link href="/" className="round" aria-label="Home">
+            ✕
+          </Link>
+        </header>
+        <div className="stage-wrap">
+          <div className="stage" />
+        </div>
+      </main>
+    );
+  }
 
   const total = manual.steps.length;
   const kind = kindOf(step);
   const done = kind === "verify" ? verify : completeDo;
+
+  const hazardous = Boolean(manual.hazard && manual.hazard !== "none");
 
   if (manual.prep?.length && !progress.prepDone) {
     return (
@@ -304,6 +335,12 @@ export default function BuildPage() {
           <Timber pose="reading" size={110} />
         </div>
         <p className="hand">{manual.title}</p>
+        <SourceTag manual={manual} />
+        {hazardous && (
+          <p className="hazard" role="alert">
+            <b>Safety first.</b> {HAZARD_TEXT[manual.hazard!]}
+          </p>
+        )}
         <ul className="prep">
           {manual.prep.map((item, i) => (
             <li key={i}>
@@ -322,8 +359,8 @@ export default function BuildPage() {
           {total} steps. Some need no photo: just do them and tap Done. I&apos;ll only check with a camera when it helps.
         </p>
         <div className="grow" />
-        <button type="button" className="primary" onClick={startSteps}>
-          {ticked.length === manual.prep.length ? "Ready, let's go" : "Start anyway"}
+        <button type="button" className="primary sticky" onClick={startSteps} disabled={hazardous && !ticked.includes(0)}>
+          {hazardous && !ticked.includes(0) ? "Tick the first item to start" : ticked.length === manual.prep.length ? "Ready, let's go" : "Start anyway"}
         </button>
       </main>
     );
@@ -365,9 +402,10 @@ export default function BuildPage() {
           live={false}
           autoTarget={target}
           resetKey={progress.step}
-          demo={manual?.demo ? demoPhoto(progress.step, demoAfter, progress.triedThisStep) : undefined}
+          demo={manual?.demo ? demoPhoto(manual.demo!, progress.step, demoAfter, progress.triedThisStep) : undefined}
           onStatus={setStatus}
         />
+        {phase === "checking" && <span className="scan" aria-hidden="true" />}
         <span className="stage-status" role="status">
           {status}
         </span>
@@ -388,7 +426,14 @@ export default function BuildPage() {
           </button>
         )}
         {phase === "correct" && (
-          <div className="verdict ok" role="status">
+          <div
+            className="verdict ok"
+            role="status"
+            onClick={() => {
+              clearTimeout(advanceTimer.current);
+              setHeld(true);
+            }}
+          >
             <span className="verdict-icon">
               <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                 <path d="M5 12l5 5 9-10" />
@@ -397,6 +442,7 @@ export default function BuildPage() {
             <div className="verdict-text">
               <b>Solid!</b>
               <span className="hand">{check?.reply || "Looks just right."}</span>
+              {check?.seen && <small className="seen">Seen: {check.seen}</small>}
             </div>
             <div className="verdict-stats">
               <span className="sticker">+{earned.xp} xp</span>
@@ -425,7 +471,7 @@ export default function BuildPage() {
         )}
       </div>
 
-      <section className="action-card compact">
+      <section key={progress.step} className="action-card compact">
         <span className="tile">
           <ActionIcon motion={step.motion} kind={kind} />
         </span>
@@ -440,7 +486,7 @@ export default function BuildPage() {
 
       <button
         type="button"
-        className={`cta${phase === "correct" ? " auto" : ""}`}
+        className={`cta${phase === "correct" && !held ? " auto" : ""}`}
         onClick={phase === "correct" ? () => proceed(progress) : done}
         disabled={phase === "checking"}
       >
@@ -460,8 +506,8 @@ export default function BuildPage() {
         <button type="button" className="secondary" onClick={() => setHelp(true)}>
           I&apos;m lost
         </button>
-        <button type="button" className="secondary" onClick={advance}>
-          Skip step
+        <button type="button" className="secondary" onClick={advance} disabled={step.safety}>
+          {step.safety ? "Safety step" : "Skip step"}
         </button>
         <button
           type="button"

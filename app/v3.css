@@ -133,6 +133,7 @@
   border: 0;
   background: rgba(20, 20, 20, 0.55);
   cursor: pointer;
+  animation: fade-in 0.25s ease-out;
 }
 
 .help-sheet {

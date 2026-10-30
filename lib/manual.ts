@@ -14,8 +14,21 @@ export type Step = {
   kind?: Kind;
   target?: string;
   motion?: Motion;
+  safety?: boolean;
 };
-export type Manual = { title: string; steps: Step[]; prep?: string[]; mode?: Mode; pdf?: string; demo?: boolean };
+export type Hazard = "none" | "electric" | "gas" | "sharp" | "heavy";
+export type Origin = { name: string; url: string; official: boolean };
+export type Lang = "en" | "es";
+export type Manual = {
+  title: string;
+  steps: Step[];
+  prep?: string[];
+  mode?: Mode;
+  pdf?: string;
+  demo?: "tower" | "lamp";
+  hazard?: Hazard;
+  source?: Origin;
+};
 export type Source = { kind: "pdf"; url: string } | { kind: "search"; query: string; mode: Mode };
 
 const part = {
@@ -32,18 +45,30 @@ const part = {
 const schema = {
   type: "object",
   additionalProperties: false,
-  required: ["title", "prep", "steps"],
+  required: ["title", "hazard", "source", "prep", "steps"],
   properties: {
     title: { type: "string" },
+    hazard: { type: "string", enum: ["none", "electric", "gas", "sharp", "heavy"], description: "Main physical risk of doing this wrong: electric (mains power), gas, sharp (blades, cutting), heavy (lifting, tipping), otherwise none." },
+    source: {
+      type: "object",
+      additionalProperties: false,
+      required: ["name", "url", "official"],
+      properties: {
+        name: { type: "string", description: "Site or brand the instructions come from. Empty when reading a given PDF." },
+        url: { type: "string", description: "https link to the page or manual used. Empty when reading a given PDF." },
+        official: { type: "boolean", description: "True only if it is the manufacturer's own manual or site." },
+      },
+    },
     prep: { type: "array", items: { type: "string" }, description: "Tools, materials and safety to get ready before step 1. Empty for assembly manuals." },
     steps: {
       type: "array",
       items: {
         type: "object",
         additionalProperties: false,
-        required: ["number", "page", "instruction", "parts", "check", "kind", "target", "motion"],
+        required: ["number", "page", "instruction", "parts", "check", "kind", "target", "motion", "safety"],
         properties: {
           number: { type: "integer" },
+          safety: { type: "boolean", description: "True only for the step that makes the work safe, such as unplugging or turning the gas off." },
           kind: { type: "string", enum: ["do", "find", "verify"] },
           motion: {
             type: "object",
@@ -77,18 +102,31 @@ const KINDS =
   "'move' when it only slides or turns (direction up, down, left or right), 'remove' when it is taken off or out (direction it leaves toward), " +
   "otherwise 'none'. Leave direction and to empty when they don't apply.";
 
-function prompt(source: Source) {
+const SAFETY =
+  "Set hazard to the main physical risk. If hazard is electric or gas, step 1 must be a verify step that makes it safe (safety true, check = it is visibly unplugged or off), " +
+  "and the first prep item must say so; this is the one exception to leaving prep empty or keeping safety out of the steps. Otherwise safety is false on every step.";
+
+const LANGUAGE: Record<Lang, string> = {
+  en: "",
+  es: " Write title, prep, instruction and check in Spanish. Keep target, part names and motion.to in English.",
+};
+
+function prompt(source: Source, lang: Lang) {
+  return base(source) + ` ${SAFETY}` + LANGUAGE[lang];
+}
+
+function base(source: Source) {
   if (source.kind === "pdf")
-    return `This is an assembly manual. Turn it into build steps in order. ${FORMAT} ${KINDS} Use kind 'verify' for every step. Leave prep empty.`;
+    return `This is an assembly manual. Turn it into build steps in order. ${FORMAT} ${KINDS} Use kind 'verify' for every step. Leave prep empty. Leave source name and url empty.`;
   if (source.mode === "fix")
     return (
       `Search the web for reliable instructions to fix or do this: "${source.query}". Turn them into 5 to 8 clear steps that are physical actions on the object. ${FORMAT} ${KINDS} ` +
       "Put tools, materials and safety in prep, NOT in steps: never make a step out of putting on gloves, stopping, getting ready or washing hands. " +
-      "Use verify only for steps whose result is visible, and make the last step a verify step that shows it is fixed. Leave parts empty. Set page to 0."
+      "Use verify only for steps whose result is visible, and make the last step a verify step that shows it is fixed. Leave parts empty. Set page to 0. Fill source with the page you used."
     );
   return (
     `Search the web for the official assembly instructions or manual for: "${source.query}". Turn them into build steps in order. ${FORMAT} ${KINDS} ` +
-    "Use kind 'verify' for every step. Leave prep empty. Set page to 0 if you can't tell the page."
+    "Use kind 'verify' for every step. Leave prep empty. Set page to 0 if you can't tell the page. Fill source with the manual or page you used."
   );
 }
 
@@ -96,8 +134,8 @@ function headers() {
   return { Authorization: `Bearer ${process.env.MODEL_API_KEY}`, "Content-Type": "application/json" };
 }
 
-export async function startReading(source: Source): Promise<string> {
-  const content: unknown[] = [{ type: "input_text", text: prompt(source) }];
+export async function startReading(source: Source, lang: Lang = "en"): Promise<string> {
+  const content: unknown[] = [{ type: "input_text", text: prompt(source, lang) }];
   if (source.kind === "pdf") content.push({ type: "input_file", file_url: source.url });
 
   const res = await fetch(API, {

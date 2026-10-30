@@ -5,7 +5,7 @@ import { checkReading, startReading, type Mode, type Source } from "../../../lib
 export async function POST(req: Request) {
   const blocked = limited(req);
   if (blocked) return blocked;
-  const { url, query, mode: rawMode } = await req.json().catch(() => ({}));
+  const { url, query, mode: rawMode, lang } = await req.json().catch(() => ({}));
   const mode: Mode = rawMode === "fix" ? "fix" : "build";
 
   try {
@@ -26,7 +26,7 @@ export async function POST(req: Request) {
       return Response.json({ error: "Send a product name or a PDF link." }, { status: 400 });
     }
 
-    return Response.json({ id: await startReading(source), mode });
+    return Response.json({ id: await startReading(source, lang === "es" ? "es" : "en"), mode });
   } catch (error) {
     console.error(error);
     return Response.json({ error: "Couldn't start. Try again." }, { status: 502 });

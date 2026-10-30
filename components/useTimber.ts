@@ -45,7 +45,7 @@ export function useTimber(onIntent: (intent: Intent) => void, step?: StepContext
       const res = await fetch("/api/ask", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ said, step }),
+        body: JSON.stringify({ said, step, lang: getSettings().lang }),
       });
       const intent = await res.json();
       if (!res.ok) throw new Error(intent.error);

@@ -26,7 +26,7 @@ export default function GalleryPage() {
         <div className="empty">
           <Timber pose="wave" size={110} />
           <p className="hand">Nothing here yet. Finish a build and it lands here.</p>
-          <Link href="/manual" className="primary">
+          <Link href="/#ask" className="primary">
             Start a project
           </Link>
         </div>

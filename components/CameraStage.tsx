@@ -300,7 +300,7 @@ export default function CameraStage({
     <div className={`stage fill${snapshot ? " frozen" : ""}`}>
       {photo ? (
         // eslint-disable-next-line @next/next/no-img-element
-        <img ref={photoRef} src={photo} alt="Your uploaded photo" className="media" />
+        <img ref={photoRef} src={photo} alt="Your uploaded photo" className="media photo" />
       ) : (
         <video ref={videoRef} autoPlay playsInline muted className="media" style={{ opacity: snapshot ? 0 : 1 }} />
       )}

@@ -3,12 +3,14 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import SourceTag from "../../components/SourceTag";
 import Timber from "../../components/Timber";
 import { useDictation } from "../../components/useDictation";
 import { fileToShot } from "../../lib/image";
 import { takeIntent, type Intent } from "../../lib/intent";
 import type { Manual, Mode } from "../../lib/manual";
 import { clearManual, clearReplay, freshProgress, loadManual, saveManual, saveProgress } from "../../lib/progress";
+import { getSettings } from "../../lib/settings";
 import type { Understood } from "../../lib/spark";
 
 const POLL_MS = 3000;
@@ -33,6 +35,7 @@ export default function ManualPage() {
   const [renaming, setRenaming] = useState(false);
   const cancelled = useRef(false);
   const started = useRef(false);
+  const retry = useRef<(() => void) | null>(null);
 
   useEffect(() => {
     cancelled.current = false;
@@ -52,14 +55,32 @@ export default function ManualPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [phase]);
+
+  useEffect(() => {
+    if (phase !== "reading") return;
+    const since = Date.now();
+    const id = setInterval(() => setElapsed(Math.round((Date.now() - since) / 1000)), 1000);
+    return () => clearInterval(id);
+  }, [phase]);
+
   function fail(e: unknown) {
-    setError(e instanceof Error && e.message ? e.message : "Something went wrong");
+    setError(
+      e instanceof TypeError
+        ? "Can't reach the server. Check your connection and try again."
+        : e instanceof Error && e.message
+          ? e.message
+          : "Something went wrong",
+    );
     setPhase("unclear");
   }
 
   async function run(next: Intent) {
     setIntent(next);
     setError("");
+    retry.current = null;
     const said = next.text?.trim() ?? "";
     if (isLink(said)) return read({ url: said }, "build", said);
     setPhase("understanding");
@@ -79,18 +100,24 @@ export default function ManualPage() {
   async function read(body: Record<string, string>, mode: Mode, name: string) {
     setError("");
     setTarget({ name, mode });
+    retry.current = () => read(body, mode, name);
     setPhase("reading");
     setElapsed(0);
     const started = Date.now();
+    let misses = 0;
     try {
-      const res = await post("/api/manual", { ...body, mode });
+      const res = await post("/api/manual", { ...body, mode, lang: getSettings().lang });
       const { id, error } = await res.json();
       if (!res.ok) throw new Error(error);
 
       while (!cancelled.current && Date.now() - started < GIVE_UP_MS) {
         await new Promise((r) => setTimeout(r, POLL_MS));
-        setElapsed(Math.round((Date.now() - started) / 1000));
-        const poll = await fetch(`/api/manual?id=${id}`);
+        const poll = await fetch(`/api/manual?id=${id}`).catch(() => null);
+        if (!poll) {
+          if (++misses >= 3) throw new TypeError("Lost the connection");
+          continue;
+        }
+        misses = 0;
         const data = await poll.json();
         if (!poll.ok) throw new Error(data.error);
         if (data.status === "failed") throw new Error("Timber couldn't find good instructions. Try another name or link.");
@@ -213,7 +240,12 @@ export default function ManualPage() {
           <p className="wiz-note" role="alert">
             {error || "Get a bit closer and add more light, or just tell me what it is."}
           </p>
-          <label className="primary upload">
+          {error && retry.current && (
+            <button type="button" className="primary" onClick={retry.current}>
+              Try again
+            </button>
+          )}
+          <label className={`${error && retry.current ? "secondary" : "primary"} upload`}>
             Retake the photo
             <input type="file" accept="image/*" capture="environment" onChange={(e) => onPhoto(e.target.files?.[0])} />
           </label>
@@ -238,8 +270,9 @@ export default function ManualPage() {
               Not this? Change it
             </Link>
           </div>
-          <p className="reading" role="status">
-            Reading it now · {elapsed} s
+          <p className="reading">
+            <span role="status">Reading it now</span>
+            <span aria-hidden="true"> · {elapsed < 60 ? `${elapsed} s` : `${Math.floor(elapsed / 60)} min ${elapsed % 60} s`}</span>
             <br />
             <span className="tip">This takes 1–3 minutes. Keep this screen open.</span>
           </p>
@@ -253,6 +286,7 @@ export default function ManualPage() {
         <>
           <p className="hand">{manual.mode === "fix" ? "Got a plan to fix it!" : "Manual read! Here's the plan:"}</p>
           <h1 className="title">{manual.title}</h1>
+          <SourceTag manual={manual} />
           <p className="tip">{manual.steps.length} steps</p>
           <ol className="steps">
             {manual.steps.map((step) => (

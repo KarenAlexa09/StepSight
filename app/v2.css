@@ -266,7 +266,7 @@ button.link {
   color: var(--ink);
   text-decoration: underline;
   cursor: pointer;
-  min-height: 40px;
+  min-height: 44px;
   padding: 0 4px;
 }
 
@@ -586,8 +586,8 @@ button.link:disabled {
   position: absolute;
   right: 10px;
   top: 10px;
-  width: 40px;
-  height: 40px;
+  width: 44px;
+  height: 44px;
   font-size: 13px;
   cursor: pointer;
 }

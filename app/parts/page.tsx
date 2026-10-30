@@ -13,6 +13,7 @@ export default function PartsPage() {
   const [shot, setShot] = useState<Shot | null>(null);
   const [results, setResults] = useState<Record<string, Result>>({});
   const [selected, setSelected] = useState<string | null>(null);
+  const [error, setError] = useState("");
 
   useEffect(() => {
     try {
@@ -34,7 +35,14 @@ export default function PartsPage() {
 
   async function onPhoto(file: File | undefined) {
     if (!file) return;
-    const next = await fileToShot(file);
+    let next: Shot;
+    try {
+      next = await fileToShot(file);
+    } catch {
+      setError("Couldn't open that photo. Try another one.");
+      return;
+    }
+    setError("");
     setShot(next);
     setResults({});
     setSelected(null);
@@ -65,7 +73,7 @@ export default function PartsPage() {
     return (
       <main className="screen paper">
         <h1 className="title">Add a manual first</h1>
-        <Link className="primary" href="/manual">
+        <Link className="primary" href="/#ask">
           Add a manual
         </Link>
       </main>
@@ -105,6 +113,12 @@ export default function PartsPage() {
         {shot ? "Retake photo" : "Take photo"}
         <input type="file" accept="image/*" capture="environment" onChange={(e) => onPhoto(e.target.files?.[0])} />
       </label>
+
+      {error && (
+        <p className="error" role="alert">
+          {error}
+        </p>
+      )}
 
       {shot && (
         <>

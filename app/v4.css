@@ -677,3 +677,93 @@ body:has(.tabbar) .screen {
     animation: none;
   }
 }
+
+.chip.lang {
+  min-width: 44px;
+  min-height: 44px;
+  font: inherit;
+  font-family: var(--font-mono), monospace;
+  font-size: 12px;
+  color: var(--ink);
+  background: #fff;
+  cursor: pointer;
+}
+
+.home .top .row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.source {
+  align-self: flex-start;
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
+  padding: 0 12px;
+  font-family: var(--font-mono), monospace;
+  font-size: 12px;
+  color: var(--ink);
+  text-decoration: none;
+  background: #fff;
+  border: 2px solid var(--ink);
+  border-radius: 999px;
+}
+
+.hazard {
+  margin: 0;
+  padding: 12px 14px;
+  font-size: 16px;
+  line-height: 1.35;
+  background: #ffa8a0;
+  border: 2px solid var(--ink);
+  border-radius: 18px;
+}
+
+.verdict-text .seen {
+  font-size: 13px;
+  line-height: 1.25;
+  opacity: 0.8;
+}
+
+button:disabled.secondary,
+button.link:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.source::after {
+  content: "";
+  position: absolute;
+  inset: -6px 0;
+}
+
+.stage-wrap.fix .showme {
+  top: 12px;
+  bottom: auto;
+}
+
+.action-card.compact {
+  animation: fade-in 0.25s ease-out;
+}
+
+.photo {
+  animation: fade-in 0.3s ease-out;
+}
+
+html.slow .cta.auto::before {
+  animation-duration: 2.8s;
+}
+
+body:has(.ask-field input:focus) .tabbar {
+  display: none;
+}
+
+.done .title.huge {
+  font-size: 52px;
+}
+
+.done-hero {
+  min-height: 30dvh;
+}

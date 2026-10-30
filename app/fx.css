@@ -172,3 +172,18 @@ html.big .status {
     animation: none;
   }
 }
+
+html.big .verdict-text,
+html.big .hazard,
+html.big .wiz-note,
+html.big .prep label,
+html.big .step-head,
+html.big .reading {
+  font-size: 19px;
+}
+
+html.big .kicker,
+html.big .mono,
+html.big .chip {
+  font-size: 14px;
+}

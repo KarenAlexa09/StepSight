@@ -1,3 +1,4 @@
+import type { Lang } from "./manual";
 import type { Box } from "./sam";
 
 const MODEL = "muse-spark-1.3";
@@ -87,22 +88,28 @@ export async function understand(said: string, image?: string): Promise<Understo
   );
 }
 
-export type Check = { done: boolean; problem: string; fix: string; reply: string };
+export type Check = { done: boolean; problem: string; fix: string; reply: string; seen: string; confidence: "high" | "medium" | "low" };
+
+const SPEAK: Record<Lang, string> = { en: "English", es: "Spanish" };
 
 export async function checkStep(
   image: string,
   step: { instruction: string; check: string; parts: string[] },
+  lang: Lang = "en",
 ): Promise<Check> {
-  return ask<Check>(
+  const result = await ask<Check>(
     [
       {
         type: "input_text",
         text:
           `This is a photo of someone's build. The step was: "${step.instruction}" using ${step.parts.join(", ") || "no new parts"}. ` +
           `When the step is done this should be visibly true: "${step.check}". ` +
-          "Is the step done? Be fair: if it's plausibly right from this angle, say done. " +
-          "If not, problem and fix are each one short, friendly sentence naming parts by color and size; otherwise both are empty. " +
-          "reply is what Timber the beaver says out loud: short, upbeat, English, no emoji.",
+          "Is the step done? Judge only what you can actually see. Say done only if the photo clearly shows it. " +
+          "If the part is hidden, blurry or cut off, say not done and ask for another angle. " +
+          "seen: one short sentence of what you can see that decides it. confidence: high, medium or low. " +
+          "If not done, problem and fix are each one short, friendly sentence naming parts by color and size; otherwise both are empty. " +
+          `Write seen, problem, fix and reply in ${SPEAK[lang]}. ` +
+          "reply is what Timber the beaver says out loud: short, upbeat, no emoji.",
       },
       { type: "input_image", image_url: image },
     ],
@@ -110,20 +117,32 @@ export async function checkStep(
     {
       type: "object",
       additionalProperties: false,
-      required: ["done", "problem", "fix", "reply"],
+      required: ["done", "problem", "fix", "reply", "seen", "confidence"],
       properties: {
         done: { type: "boolean" },
         problem: { type: "string" },
         fix: { type: "string" },
         reply: { type: "string" },
+        seen: { type: "string" },
+        confidence: { type: "string", enum: ["high", "medium", "low"] },
       },
     },
   );
+  // A guess is not a pass: low confidence means show it again.
+  if (result.done && result.confidence === "low") {
+    return {
+      ...result,
+      done: false,
+      problem: result.problem || "I can't be sure from this photo.",
+      fix: result.fix || "Show it again, closer or from another angle.",
+    };
+  }
+  return result;
 }
 
 export type Intent ={ action: "next" | "back" | "find" | "repeat" | "none"; target: string; reply: string };
 
-export async function interpret(said: string, step?: { instruction: string; parts: string[] }): Promise<Intent> {
+export async function interpret(said: string, step?: { instruction: string; parts: string[] }, lang: Lang = "en"): Promise<Intent> {
   const context = step
     ? `They are on this step: "${step.instruction}". Parts for this step: ${step.parts.join(", ") || "none"}.`
     : "They have no manual loaded; they're just looking for things with the camera.";
@@ -137,7 +156,7 @@ export async function interpret(said: string, step?: { instruction: string; part
           "Pick one action: next (go to the next step), back (previous step), find (show where something is with the camera), " +
           "repeat (read the step again) or none (just answer). " +
           'For find, target is a short noun phrase to look for, color first if known, e.g. "red piece" or "vacuum cleaner"; otherwise "". ' +
-          "reply is one short, upbeat spoken sentence in English, no emoji.",
+          `reply is one short, upbeat spoken sentence in ${SPEAK[lang]}, no emoji.`,
       },
     ],
     "intent",

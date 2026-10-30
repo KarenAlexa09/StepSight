@@ -83,7 +83,7 @@ body {
   z-index: 2;
   font: inherit;
   font-size: 14px;
-  min-height: 40px;
+  min-height: 44px;
   padding: 0 14px;
   background: var(--paper);
   color: var(--ink);
@@ -602,4 +602,42 @@ a.tip {
 .upload:focus-within {
   outline: 3px solid var(--ink);
   outline-offset: 2px;
+}
+
+.screen > :not(.top) {
+  animation: fade-in 0.25s ease-out;
+}
+
+:focus-visible {
+  outline: 3px solid var(--ink);
+  outline-offset: 2px;
+}
+
+.ask-field:focus-within,
+.ask-cam:has(:focus-visible) {
+  outline: 3px solid var(--ink);
+  outline-offset: 2px;
+}
+
+.help-sheet:focus {
+  outline: 0;
+}
+
+:is(button, a) {
+  -webkit-tap-highlight-color: transparent;
+}
+
+:is(.primary, .secondary, .cta, .ask-chip, .ask-mic, .ask-send, .round, .showme, .back-live, .opt, .tab-new):active:not(:disabled) {
+  transform: translate(2px, 2px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  ::before,
+  ::after {
+    animation-duration: 0.01ms !important;
+    animation-delay: 0s !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }
