@@ -55,24 +55,34 @@ export async function locate(
   return result.right - result.left > 2 && result.bottom - result.top > 2 ? result : null;
 }
 
-export async function identify(image: string): Promise<{ name: string; issue: string }> {
-  return ask<{ name: string; issue: string }>(
+export type Understood = { clear: boolean; name: string; mode: "build" | "fix"; issue: string };
+
+export async function understand(said: string, image?: string): Promise<Understood> {
+  return ask<Understood>(
     [
       {
         type: "input_text",
         text:
-          "What product or object is in this photo? name: its most specific name as you can tell (brand and model if visible, " +
-          "otherwise a plain description like 'bicycle chain'), max 8 words. issue: if it looks broken, loose or open for repair, " +
-          "say what in a few words; otherwise empty.",
+          "Someone wants help with a physical task. From what they said and the photo, if any: " +
+          "clear: true only if you can tell which product or object it is. " +
+          "name: its most specific name as you can tell (brand and model if visible, otherwise a plain description like 'bicycle chain'), max 8 words. " +
+          "mode: 'fix' if it is broken, loose or open for repair, otherwise 'build' (assemble, set up or use it). " +
+          "issue: if mode is fix, what is wrong in a few words; otherwise empty." +
+          (said ? ` They said: "${said}"` : ""),
       },
-      { type: "input_image", image_url: image },
+      ...(image ? [{ type: "input_image", image_url: image }] : []),
     ],
-    "identify",
+    "understand",
     {
       type: "object",
       additionalProperties: false,
-      required: ["name", "issue"],
-      properties: { name: { type: "string" }, issue: { type: "string" } },
+      required: ["clear", "name", "mode", "issue"],
+      properties: {
+        clear: { type: "boolean" },
+        name: { type: "string" },
+        mode: { type: "string", enum: ["build", "fix"] },
+        issue: { type: "string" },
+      },
     },
   );
 }

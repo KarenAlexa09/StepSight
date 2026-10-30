@@ -3,7 +3,7 @@ import { useSyncExternalStore } from "react";
 export type Settings = { sound: boolean; quiet: boolean; captions: boolean; vibration: boolean; slow: boolean; big: boolean };
 
 const KEY = "stepsight.settings";
-export const DEFAULTS: Settings = { sound: true, quiet: false, captions: true, vibration: true, slow: false, big: false };
+export const DEFAULTS: Settings = { sound: true, quiet: false, captions: false, vibration: true, slow: false, big: false };
 
 function load(): Settings {
   try {

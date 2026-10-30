@@ -59,6 +59,7 @@ export default function BuildPage() {
   const [demoAfter, setDemoAfter] = useState(false);
   const [piece, setPiece] = useState<string | null>(null);
   const [simple, setSimple] = useState("");
+  const [empty, setEmpty] = useState(false);
 
   const step = manual && progress ? manual.steps[progress.step] : undefined;
   const timber = useTimber(onIntent, step && { instruction: step.instruction, parts: step.parts.map(partLabel) });
@@ -68,7 +69,7 @@ export default function BuildPage() {
   useEffect(() => {
     const m = loadManual();
     if (!m) {
-      router.replace("/manual");
+      setEmpty(true);
       return;
     }
     const p = loadProgress();
@@ -160,7 +161,7 @@ export default function BuildPage() {
       setStatus(result.done ? "Step checked" : "Needs a fix");
       if (!result.done) timber.say(result.fix || result.reply);
       if (result.done) {
-        thumb(shot.image).then(addReplayFrame);
+        thumb(shot.image, 560).then(addReplayFrame);
         const firstTry = !progress.triedThisStep;
         const xp = XP_STEP + (firstTry ? XP_FIRST_TRY : 0);
         setEarned({ xp, firstTry });
@@ -259,6 +260,26 @@ export default function BuildPage() {
     } else {
       timber.say(intent.reply);
     }
+  }
+
+  if (empty) {
+    return (
+      <main className="screen paper">
+        <header className="top">
+          <Link href="/" className="round" aria-label="Home">
+            ←
+          </Link>
+          <span className="chip">Projects</span>
+        </header>
+        <div className="hero">
+          <h1 className="title big">No project yet</h1>
+          <Timber pose="reading" size={96} />
+        </div>
+        <Link href="/#ask" className="primary">
+          Start one
+        </Link>
+      </main>
+    );
   }
 
   if (!manual || !progress || !step) return <main className="screen paper" />;

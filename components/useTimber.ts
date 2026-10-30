@@ -2,11 +2,8 @@
 
 import { useRef, useState } from "react";
 import { getSettings } from "../lib/settings";
-import { play } from "../lib/sound";
 import type { Intent } from "../lib/spark";
-import { recordingToWav } from "../lib/wav";
-
-const MAX_RECORDING_MS = 5000;
+import { useDictation } from "./useDictation";
 
 const lines = new Map<string, string>();
 
@@ -15,8 +12,6 @@ export type StepContext = { instruction: string; parts: string[] };
 export function useTimber(onIntent: (intent: Intent) => void, step?: StepContext) {
   const audio = useRef<HTMLAudioElement | null>(null);
   const turn = useRef(0);
-  const recorder = useRef<MediaRecorder | null>(null);
-  const [listening, setListening] = useState(false);
   const [thinking, setThinking] = useState(false);
   const [heard, setHeard] = useState("");
 
@@ -62,43 +57,7 @@ export function useTimber(onIntent: (intent: Intent) => void, step?: StepContext
     }
   }
 
-  async function listen() {
-    if (recorder.current?.state === "recording") {
-      recorder.current.stop();
-      return;
-    }
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const chunks: Blob[] = [];
-      const rec = new MediaRecorder(stream);
-      recorder.current = rec;
-      rec.ondataavailable = (e) => chunks.push(e.data);
-      rec.onstop = async () => {
-        stream.getTracks().forEach((t) => t.stop());
-        setListening(false);
-        setThinking(true);
-        try {
-          const form = new FormData();
-          form.append("audio", await recordingToWav(new Blob(chunks, { type: rec.mimeType })), "said.wav");
-          const res = await fetch("/api/transcribe", { method: "POST", body: form });
-          const data = await res.json();
-          if (!res.ok) throw new Error(data.error);
-          if (data.transcript) await ask(data.transcript);
-          else setHeard("Didn't catch that");
-        } catch (error) {
-          setHeard(error instanceof Error && error.message ? error.message : "Couldn't hear that");
-        } finally {
-          setThinking(false);
-        }
-      };
-      rec.start();
-      play("boop");
-      setListening(true);
-      setTimeout(() => rec.state === "recording" && rec.stop(), MAX_RECORDING_MS);
-    } catch {
-      setHeard("Allow the microphone to talk to Timber");
-    }
-  }
+  const dictation = useDictation(ask, setHeard);
 
-  return { say, ask, listen, listening, thinking, heard };
+  return { say, ask, listen: dictation.toggle, listening: dictation.listening, thinking: thinking || dictation.transcribing, heard };
 }

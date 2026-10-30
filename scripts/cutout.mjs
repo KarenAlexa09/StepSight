@@ -56,4 +56,4 @@ function cutout(name) {
   console.log(name, `bg rgb(${bg}) tolerance ${tolerance.toFixed(0)}`);
 }
 
-for (const file of readdirSync(IN)) if (/^[a-z]+\.png$/.test(file)) cutout(file.replace(".png", ""));
+for (const file of readdirSync(IN)) if (/^[a-z]+\.png$/.test(file) && (!process.argv[2] || file === `${process.argv[2]}.png`)) cutout(file.replace(".png", ""));

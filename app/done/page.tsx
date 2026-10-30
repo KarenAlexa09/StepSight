@@ -64,10 +64,10 @@ export default function DonePage() {
       </div>
 
       <div className="done-hero">
-        <Replay frames={frames} />
         <span className="done-timber">
-          <Timber pose="hardhat" size={112} />
+          <Timber pose="lean" size={88} />
         </span>
+        <Replay frames={frames} />
       </div>
 
       <div className="stat3">
