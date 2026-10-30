@@ -17,7 +17,7 @@ export type Step = {
   safety?: boolean;
 };
 export type Hazard = "none" | "electric" | "gas" | "sharp" | "heavy";
-export type Origin = { name: string; url: string; official: boolean };
+export type Origin = { name: string; url: string; official: boolean; specific?: boolean };
 export type Lang = "en" | "es";
 export type Manual = {
   title: string;
@@ -52,11 +52,12 @@ const schema = {
     source: {
       type: "object",
       additionalProperties: false,
-      required: ["name", "url", "official"],
+      required: ["name", "url", "official", "specific"],
       properties: {
         name: { type: "string", description: "Site or brand the instructions come from. Empty when reading a given PDF." },
         url: { type: "string", description: "https link to the page or manual used. Empty when reading a given PDF." },
         official: { type: "boolean", description: "True only if it is the manufacturer's own manual or site." },
+        specific: { type: "boolean", description: "True only if the page is written for the exact brand and model asked for, not a generic guide for the product type." },
       },
     },
     prep: { type: "array", items: { type: "string" }, description: "Tools, materials and safety to get ready before step 1. Empty for assembly manuals." },
@@ -115,17 +116,20 @@ function prompt(source: Source, lang: Lang) {
   return base(source) + ` ${SAFETY}` + LANGUAGE[lang];
 }
 
+const MODEL_FIRST =
+  "Look for the manufacturer's page or manual for that exact brand and model first, then a guide written for that exact model; use a generic guide only if nothing specific exists, and then set specific to false. ";
+
 function base(source: Source) {
   if (source.kind === "pdf")
     return `This is an assembly manual. Turn it into build steps in order. ${FORMAT} ${KINDS} Use kind 'verify' for every step. Leave prep empty. Leave source name and url empty.`;
   if (source.mode === "fix")
     return (
-      `Search the web for reliable instructions to fix or do this: "${source.query}". Turn them into 5 to 8 clear steps that are physical actions on the object. ${FORMAT} ${KINDS} ` +
+      `Search the web for reliable instructions to fix or do this: "${source.query}". ${MODEL_FIRST}Turn them into 5 to 8 clear steps that are physical actions on the object. ${FORMAT} ${KINDS} ` +
       "Put tools, materials and safety in prep, NOT in steps: never make a step out of putting on gloves, stopping, getting ready or washing hands. " +
       "Use verify only for steps whose result is visible, and make the last step a verify step that shows it is fixed. Leave parts empty. Set page to 0. Fill source with the page you used."
     );
   return (
-    `Search the web for the official assembly instructions or manual for: "${source.query}". Turn them into build steps in order. ${FORMAT} ${KINDS} ` +
+    `Search the web for the official assembly instructions or manual for: "${source.query}". ${MODEL_FIRST}Turn them into build steps in order. ${FORMAT} ${KINDS} ` +
     "Use kind 'verify' for every step. Leave prep empty. Set page to 0 if you can't tell the page. Fill source with the manual or page you used."
   );
 }

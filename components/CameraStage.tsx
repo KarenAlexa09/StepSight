@@ -354,10 +354,17 @@ export default function CameraStage({
         </button>
       )}
       {moving && !snapshot && <p className="steady">{t("Hold steady…")}</p>}
-      {cameraError && !photo && (
+      {cameraError && !snapshot && (
         <label className="hint upload">
-          {t("No camera here.")} <u>{t("Upload a photo")}</u>
-          <input type="file" accept="image/*" onChange={(e) => e.target.files?.[0] && loadPhoto(e.target.files[0])} />
+          {photo ? <u>{t("Upload another photo")}</u> : <>{t("No camera here.")} <u>{t("Upload a photo")}</u></>}
+          <input
+            type="file"
+            accept="image/*"
+            onChange={(e) => {
+              if (e.target.files?.[0]) loadPhoto(e.target.files[0]);
+              e.target.value = "";
+            }}
+          />
         </label>
       )}
     </div>

@@ -20,10 +20,10 @@ const GIVE_UP_MS = 8 * 60 * 1000;
 
 type Phase = "understanding" | "ask" | "confirm" | "unclear" | "reading" | "done";
 
-const MAX_QUESTIONS = 3;
+const MAX_QUESTIONS = 4;
 
 const isLink = (text: string) => /^https:\/\/\S+$/.test(text);
-const queryOf = (u: Understood) => (u.mode === "fix" && u.issue ? `${u.name}: ${u.issue}` : u.name).slice(0, 120);
+const queryOf = (u: Understood) => (u.query.trim() || (u.mode === "fix" && u.issue ? `${u.name}: ${u.issue}` : u.name)).slice(0, 120);
 const post = (url: string, body: unknown) =>
   fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
 
@@ -33,7 +33,7 @@ export default function ManualPage() {
   const [phase, setPhase] = useState<Phase>("understanding");
   const [intent, setIntent] = useState<Intent>({});
   const [understood, setUnderstood] = useState<Understood | null>(null);
-  const [target, setTarget] = useState<{ name: string; mode: Mode } | null>(null);
+  const [target, setTarget] = useState<{ name: string; mode: Mode; generic?: boolean } | null>(null);
   const [manual, setManual] = useState<Manual | null>(null);
   const [error, setError] = useState("");
   const [elapsed, setElapsed] = useState(0);
@@ -95,24 +95,26 @@ export default function ManualPage() {
     if (talk.length) setThinking(true);
     else setPhase("understanding");
     try {
-      const res = await post("/api/understand", { ...next, history: talk, lang: getSettings().lang });
+      const res = await post("/api/understand", { ...next, history: talk.slice(0, -1), lang: getSettings().lang });
       const data: Understood & { error?: string } = await res.json();
       if (!res.ok) throw new Error(data.error);
       setUnderstood(data);
       setThinking(false);
-      if (!data.clear || !data.name.trim()) return setPhase("unclear");
       const asked = talk.filter((turn) => turn.role === "timber").length;
-      if (!data.ready && data.question && asked < MAX_QUESTIONS) {
+      const question = data.question || (!data.ready && data.needsModel && !data.model.trim() ? t("What brand and model is it? A photo of the label works too.") : "");
+      const asking = !data.ready && question && asked < MAX_QUESTIONS;
+      if (!asking && (!data.clear || !data.name.trim())) return setPhase("unclear");
+      if (asking) {
         const before = talk.length ? talk : said ? [{ role: "you" as const, text: said }] : [];
-        setChat([...before, { role: "timber", text: data.question }]);
+        setChat([...before, { role: "timber", text: question }]);
         setOptions(data.options);
         setReply("");
         setPhase("ask");
-        timber.say(data.question);
+        timber.say(question);
         return;
       }
       if (next.image && !said && !talk.length) return setPhase("confirm");
-      read({ query: queryOf(data) }, data.mode, data.name);
+      search(data);
     } catch (e) {
       setThinking(false);
       fail(e);
@@ -129,10 +131,14 @@ export default function ManualPage() {
     run({ image: intent.image, text: said }, talk);
   }
 
-  async function read(body: Record<string, string>, mode: Mode, name: string) {
+  function search(u: Understood) {
+    read({ query: queryOf(u) }, u.mode, u.name, u.needsModel && (!u.model.trim() || /generic/i.test(u.model)));
+  }
+
+  async function read(body: Record<string, string>, mode: Mode, name: string, generic = false) {
     setError("");
-    setTarget({ name, mode });
-    retry.current = () => read(body, mode, name);
+    setTarget({ name, mode, generic });
+    retry.current = () => read(body, mode, name, generic);
     setPhase("reading");
     setElapsed(0);
     const started = Date.now();
@@ -175,7 +181,12 @@ export default function ManualPage() {
   async function onPhoto(file: File | undefined) {
     if (!file) return;
     try {
-      run({ image: (await fileToShot(file)).image });
+      const image = (await fileToShot(file)).image;
+      if (phase !== "ask") return run({ image });
+      const talk: Turn[] = [...chat, { role: "you", text: "(sent a photo)" }];
+      setChat(talk);
+      setOptions([]);
+      run({ image, text: "" }, talk);
     } catch {
       setError(t("Couldn't open that photo."));
     }
@@ -187,7 +198,7 @@ export default function ManualPage() {
   }
 
   const busy = dictation.listening || dictation.transcribing;
-  const shown: Understood = understood ?? { name: "", mode: "build", issue: "", clear: false, ready: false, question: "", options: [] };
+  const shown: Understood = understood ?? { name: "", mode: "build", issue: "", clear: false, ready: false, question: "", options: [], model: "", needsModel: false, query: "" };
 
   const head = (
     <header className="top">
@@ -232,7 +243,7 @@ export default function ManualPage() {
           <div className="chat" role="log" aria-live="polite">
             {chat.map((turn, i) => (
               <p key={i} className={`bubble ${turn.role}`}>
-                {turn.text}
+                {turn.role === "you" ? t(turn.text) : turn.text}
               </p>
             ))}
             {thinking && (
@@ -284,14 +295,20 @@ export default function ManualPage() {
               </svg>
             </button>
           </form>
+          {!understood?.model.trim() && (
+            <label className="secondary upload">
+              {t("Send a photo (label or product)")}
+              <input type="file" accept="image/*" capture="environment" disabled={thinking || busy} onChange={(e) => onPhoto(e.target.files?.[0])} />
+            </label>
+          )}
           {dictation.transcribing && (
             <p className="reading" role="status">
               {t("Reading what you said…")} <span className="dots" aria-hidden="true"><i /><i /><i /></span>
             </p>
           )}
-          {understood?.name && (
-            <button type="button" className="secondary" disabled={thinking || busy} onClick={() => read({ query: queryOf(understood) }, understood.mode, understood.name)}>
-              {t("Search with what I have")}
+          {understood?.name && !options.some((o) => /generic|genéric/i.test(o)) && (
+            <button type="button" className="secondary" disabled={thinking || busy} onClick={() => search(understood)}>
+              {understood.needsModel && !understood.model.trim() ? t("Skip, use a generic guide") : t("Search with what I have")}
             </button>
           )}
         </div>
@@ -331,7 +348,7 @@ export default function ManualPage() {
             type="button"
             className="primary"
             disabled={busy || !shown.name.trim()}
-            onClick={() => read({ query: queryOf(shown) }, shown.mode, shown.name)}
+            onClick={() => search(shown)}
           >
             {t("Yes, find the manual →")}
           </button>
@@ -376,6 +393,7 @@ export default function ManualPage() {
             <span className="kicker">{t("I UNDERSTOOD")}</span>
             <h2 className="folder-title">{target.name}</h2>
             <span className="chip">{target.mode === "fix" ? t("FIX") : t("BUILD")}</span>
+            {target.generic && <span className="chip">{t("GENERIC GUIDE")}</span>}
             <Link href="/#ask" className="link">
               {t("Not this? Change it")}
             </Link>
