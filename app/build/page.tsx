@@ -37,12 +37,12 @@ const partLabel = (p: Part) => `${p.quantity}× ${p.color} ${p.name}`.replace(" 
 const AUTO_MS = 1600;
 const AUTO_SLOW_MS = 2800;
 
-function kicker(s: Step) {
+function kicker(s: Step, fix: boolean) {
   const type = s.motion?.type;
   if (type === "connect") return tr("CONNECT");
   if (type === "move") return tr("MOVE");
   if (type === "remove") return tr("TAKE OFF");
-  return { do: tr("DO IT"), find: tr("FIND IT"), verify: tr("BUILD") }[kindOf(s)];
+  return { do: tr("DO IT"), find: tr("FIND IT"), verify: fix ? tr("CHECK IT") : tr("BUILD") }[kindOf(s)];
 }
 
 const HAZARD_TEXT = {
@@ -90,6 +90,7 @@ export default function BuildPage() {
     setManual(m);
     setProgress(p);
     setTarget(targetOf(m.steps[p.step]));
+    if (m.mode === "fix") setStatus("Point the camera at what you're fixing");
   }, [router]);
 
   function show(t = target) {
@@ -159,7 +160,7 @@ export default function BuildPage() {
     const shot = camera.current?.capture();
     if (!shot) {
       setPhase("work");
-      setStatus(t("Camera isn't ready yet"));
+      setStatus(t("No picture yet. Upload a photo of it first."));
       return;
     }
     try {
@@ -480,7 +481,7 @@ export default function BuildPage() {
         </span>
         <div className="action-text">
           <span className="kicker">
-            {kicker(step)}
+            {kicker(step, manual.mode === "fix")}
             {step.page > 0 && ` · p. ${step.page}`}
           </span>
           <h1 className="instruction">{step.instruction}</h1>

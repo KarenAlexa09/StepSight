@@ -65,11 +65,14 @@ export type Understood = {
   issue: string;
   question: string;
   options: string[];
+  model: string;
+  needsModel: boolean;
+  query: string;
 };
 
 export async function understand(said: string, image?: string, history: Turn[] = [], lang: Lang = "en"): Promise<Understood> {
   const talk = history.map((turn) => `${turn.role === "you" ? "Person" : "Timber"}: ${turn.text}`).join("\n");
-  return ask<Understood>(
+  const data = await ask<Understood>(
     [
       {
         type: "input_text",
@@ -78,10 +81,15 @@ export async function understand(said: string, image?: string, history: Turn[] =
           "Use what they said, the conversation so far and the photo, if any. " +
           "clear: true only if you can tell which kind of product or object it is. " +
           "name: its most specific name from everything you know (brand and model if known, otherwise a plain description like 'bicycle chain'), max 8 words. " +
-          "mode: 'fix' for anything repair, replacement of a part, maintenance or troubleshooting (a broken thing, a dead bulb, a clogged drain), otherwise 'build' (assemble, install, set up or use something new). " +
-          "issue: if mode is fix, what is wrong in a few words; otherwise empty. " +
-          "ready: true only when you know the specific product (brand and model, or a common product that needs no model) AND what the person wants done with it (what is wrong, or what to build or set up). " +
-          "If not ready, question is ONE short friendly question asking the single most useful missing detail (brand, model, or what exactly is wrong), and options are up to 4 short likely answers; otherwise question is empty and options is empty. " +
+          "mode: 'fix' for anything repair, replacement of a part, maintenance, cleaning or troubleshooting (a broken thing, a dead bulb, a clogged drain), otherwise 'build' (assemble, install, set up or use something new). " +
+          "issue: if mode is fix, the task or what is wrong in a few words; otherwise empty. " +
+          "needsModel: true when the right steps depend on the exact model, which is true for almost every electronic or powered product and appliance (headphones, phone, coffee machine, vacuum, printer, router, camera, console) and for branded furniture; false for generic things (bicycle chain, dripping tap, light bulb, clogged drain). " +
+          "model: the brand and model exactly as the person or the photo (label, logo, model number) gives them, or empty if unknown. A product line name that already implies the brand counts as a model: 'Kallax' is 'IKEA Kallax', 'AirPods Pro' is 'Apple AirPods Pro'; a size or variant the person adds (like '2x4') completes it.Set it to 'generic' only after the person explicitly chose a generic guide; saying they don't know the model is not enough, ask for a photo first. " +
+          "ready: true only when (needsModel is false or model is not empty) AND you know what the person wants done with it. Never guess a brand or model. " +
+          "If not ready, question is ONE short friendly question about the single most useful missing detail. Ask for brand and model first (a brand alone is not enough); only after that ask what exactly is wrong or what task they want. " +
+          "If they don't know the model, ask them to send a photo of the label or model number, and offer a generic guide as an option. " +
+          "options are up to 4 short likely answers (for a missing model offer likely brands, not tasks). When ready, question is empty and options is empty. " +
+          "query: a web search query in English for the best guide, built from the whole conversation: brand, model, product and task, e.g. 'Sony WH-1000XM4 headphones clean ear pads'; add 'generic' if model is 'generic'; max 100 characters. " +
           `Write question and options in ${SPEAK[lang]}.` +
           (talk ? `\nConversation so far:\n${talk}` : "") +
           (said ? `\nThe person just said: "${said}"` : ""),
@@ -92,7 +100,7 @@ export async function understand(said: string, image?: string, history: Turn[] =
     {
       type: "object",
       additionalProperties: false,
-      required: ["clear", "ready", "name", "mode", "issue", "question", "options"],
+      required: ["clear", "ready", "name", "mode", "issue", "question", "options", "model", "needsModel", "query"],
       properties: {
         clear: { type: "boolean" },
         ready: { type: "boolean" },
@@ -101,9 +109,15 @@ export async function understand(said: string, image?: string, history: Turn[] =
         issue: { type: "string" },
         question: { type: "string" },
         options: { type: "array", items: { type: "string" } },
+        model: { type: "string" },
+        needsModel: { type: "boolean" },
+        query: { type: "string" },
       },
     },
   );
+  // The model sometimes says ready without a model; don't trust it for product-specific tasks.
+  if (data.ready && data.needsModel && !data.model.trim()) data.ready = false;
+  return data;
 }
 
 export type Check = { done: boolean; problem: string; fix: string; reply: string; seen: string; confidence: "high" | "medium" | "low" };

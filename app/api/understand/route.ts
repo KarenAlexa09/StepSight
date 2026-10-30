@@ -17,7 +17,7 @@ export async function POST(req: Request) {
   try {
     const turns: Turn[] = (Array.isArray(history) ? history : [])
       .filter((t) => (t?.role === "you" || t?.role === "timber") && typeof t.text === "string" && t.text.length <= 300)
-      .slice(-8);
+      .slice(-12);
     const data = await understand(said, photo, turns, lang === "es" ? "es" : "en");
     return Response.json({ ...data, options: data.options.slice(0, 4) });
   } catch (error) {
