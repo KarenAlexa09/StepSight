@@ -1,3 +1,6 @@
+import { tr } from "./i18n";
+import { formatMinutes } from "./progress";
+
 export type CardData = { title: string; minutes: number; stars: number; steps: number; mistakes: number; photo?: string };
 
 const INK = "#141414";
@@ -12,26 +15,28 @@ function load(src: string): Promise<HTMLImageElement | null> {
   });
 }
 
-function wrap(ctx: CanvasRenderingContext2D, text: string, x: number, y: number, maxWidth: number, lineHeight: number) {
+function lines(ctx: CanvasRenderingContext2D, text: string, maxWidth: number) {
+  const out: string[] = [];
   let line = "";
   for (const word of text.split(" ")) {
     const test = line ? `${line} ${word}` : word;
     if (ctx.measureText(test).width > maxWidth && line) {
-      ctx.fillText(line, x, y);
+      out.push(line);
       line = word;
-      y += lineHeight;
     } else line = test;
   }
-  ctx.fillText(line, x, y);
-  return y + lineHeight;
+  out.push(line);
+  return out;
 }
 
-export async function drawCard(data: CardData): Promise<Blob> {
-  const canvas = document.createElement("canvas");
-  canvas.width = 1080;
-  canvas.height = 1350;
-  const ctx = canvas.getContext("2d")!;
+function fit(ctx: CanvasRenderingContext2D, text: string, maxWidth: number, start: number, min: number, font: (size: number) => string) {
+  let size = start;
+  ctx.font = font(size);
+  while (size > min && ctx.measureText(text).width > maxWidth) ctx.font = font((size -= 2));
+  return ctx.measureText(text).width;
+}
 
+function paint(ctx: CanvasRenderingContext2D, data: CardData, frame: HTMLImageElement | null, timber: HTMLImageElement | null) {
   ctx.fillStyle = PAPER;
   ctx.fillRect(0, 0, 1080, 1350);
   ctx.fillStyle = "#d6cebd";
@@ -50,9 +55,8 @@ export async function drawCard(data: CardData): Promise<Blob> {
 
   ctx.fillStyle = INK;
   ctx.font = "32px monospace";
-  ctx.fillText("STEPSIGHT · BUILD CARD", 140, 215);
+  ctx.fillText(tr("STEPSIGHT · BUILD CARD"), 140, 215);
 
-  const frame = data.photo ? await load(data.photo) : null;
   ctx.fillStyle = "#fff";
   ctx.beginPath();
   ctx.roundRect(140, 250, 800, 500, 28);
@@ -67,33 +71,73 @@ export async function drawCard(data: CardData): Promise<Blob> {
     ctx.drawImage(frame, 146 + (788 - frame.width * scale) / 2, 256 + (488 - frame.height * scale) / 2, frame.width * scale, frame.height * scale);
     ctx.restore();
   }
-
-  const timber = await load("/mascot/hardhat.webp");
   if (timber) ctx.drawImage(timber, 760, 600, 220, 220);
 
   ctx.fillStyle = INK;
-  ctx.font = "600 64px Georgia, serif";
-  const y = wrap(ctx, data.title, 140, 860, 800, 72);
+  let size = 64;
+  const titleFont = (n: number) => `600 ${n}px Georgia, serif`;
+  ctx.font = titleFont(size);
+  while (size > 40 && lines(ctx, data.title, 800).length > 2) ctx.font = titleFont((size -= 4));
+  let y = 860;
+  for (const line of lines(ctx, data.title, 800).slice(0, 2)) {
+    ctx.fillText(line, 140, y);
+    y += size + 8;
+  }
 
-  ctx.font = "34px monospace";
-  ctx.fillText(`${data.minutes} min · ${data.stars}/${data.steps} first try · ${data.mistakes} fixed`, 140, y + 20);
+  const stats = `${formatMinutes(data.minutes)} · ${tr("{stars}/{steps} first try · {n} fixed", { stars: data.stars, steps: data.steps, n: data.mistakes })}`;
+  fit(ctx, stats, 800, 34, 22, (n) => `${n}px monospace`);
+  ctx.fillText(stats, 140, y + 20);
 
+  const stamp = tr("Built by me. Timber watched.");
+  const width = fit(ctx, stamp, 760, 36, 24, (n) => `${n}px monospace`);
   ctx.fillStyle = "#E4FF3A";
   ctx.beginPath();
-  ctx.roundRect(140, 1070, 420, 80, 40);
+  ctx.roundRect(140, 1070, width + 40, 80, 40);
   ctx.fill();
   ctx.stroke();
   ctx.fillStyle = INK;
-  ctx.font = "36px monospace";
-  ctx.fillText("Built by me. Timber watched.", 160, 1122);
+  ctx.fillText(stamp, 160, 1122);
+}
 
+const GIF_SCALE = 0.5;
+const FRAME_MS = 450;
+const HOLD_MS = 1800;
+
+export async function drawCard(data: CardData): Promise<Blob> {
+  const canvas = document.createElement("canvas");
+  canvas.width = 1080;
+  canvas.height = 1350;
+  const [frame, timber] = await Promise.all([data.photo ? load(data.photo) : null, load("/mascot/hardhat.webp")]);
+  paint(canvas.getContext("2d")!, data, frame, timber);
   return new Promise((resolve, reject) => canvas.toBlob((b) => (b ? resolve(b) : reject(new Error("card"))), "image/png"));
 }
 
-export async function shareCard(data: CardData) {
-  const file = new File([await drawCard(data)], "stepsight-card.png", { type: "image/png" });
+export async function drawGif(data: CardData, photos: string[]): Promise<Blob> {
+  const { GIFEncoder, quantize, applyPalette } = await import("gifenc");
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.round(1080 * GIF_SCALE);
+  canvas.height = Math.round(1350 * GIF_SCALE);
+  const ctx = canvas.getContext("2d", { willReadFrequently: true })!;
+  const [images, timber] = await Promise.all([Promise.all(photos.map(load)), load("/mascot/hardhat.webp")]);
+  const gif = GIFEncoder();
+  images.forEach((frame, i) => {
+    ctx.setTransform(GIF_SCALE, 0, 0, GIF_SCALE, 0, 0);
+    paint(ctx, data, frame, timber);
+    const { data: rgba } = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    const palette = quantize(rgba, 256);
+    gif.writeFrame(applyPalette(rgba, palette), canvas.width, canvas.height, { palette, delay: i === images.length - 1 ? HOLD_MS : FRAME_MS });
+  });
+  gif.finish();
+  return new Blob([gif.bytes() as BlobPart], { type: "image/gif" });
+}
+
+export async function shareCard(data: CardData, photos: string[] = []) {
+  const gif = photos.length > 1 ? await drawGif(data, photos).catch(() => null) : null;
+  const file = gif
+    ? new File([gif], "stepsight-replay.gif", { type: "image/gif" })
+    : new File([await drawCard(data)], "stepsight-card.png", { type: "image/png" });
   if (navigator.canShare?.({ files: [file] })) {
-    await navigator.share({ files: [file], title: "I built it with StepSight" });
+    await navigator.share({ files: [file], title: tr("I built it with StepSight") });
     return;
   }
   const a = document.createElement("a");

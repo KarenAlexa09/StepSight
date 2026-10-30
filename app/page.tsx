@@ -1,5 +1,6 @@
 "use client";
 
+import { useT } from "../lib/i18n";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, type FormEvent } from "react";
@@ -19,6 +20,7 @@ const BARS = [10, 22, 34, 18, 40, 28, 14, 36, 24, 44, 16, 30, 20, 38, 12, 26, 32
 const svg = { viewBox: "0 0 24 24", fill: "none", strokeLinecap: "round", strokeLinejoin: "round", "aria-hidden": true } as const;
 
 export default function Home() {
+  const t = useT();
   const router = useRouter();
   const { lang } = useSettings();
   const [manual, setManual] = useState<Manual | null>(null);
@@ -72,7 +74,7 @@ export default function Home() {
     try {
       go({ image: (await fileToShot(file)).image, text: text.trim() || undefined });
     } catch {
-      setError("Couldn't open that photo.");
+      setError(t("Couldn't open that photo."));
       setOpening(false);
     }
   }
@@ -103,10 +105,10 @@ export default function Home() {
 
       <section className="greet">
         <div className="greet-timber">
-          <Timber pose={name === "Apprentice" ? "wave" : "hardhat"} move="none" size={124} />
+          <Timber pose={name === t("Apprentice") ? "wave" : "hardhat"} move="none" size={124} />
         </div>
-        <p className="hand">{dictation.listening ? "Go ahead…" : opening ? "One sec…" : `Hi there, ${name.toLowerCase()}!`}</p>
-        <h1 className="title big">{dictation.listening ? "I’m listening" : dictation.transcribing ? "Hearing you…" : opening ? "Opening your photo…" : "What do you need?"}</h1>
+        <p className="hand">{dictation.listening ? t("Go ahead…") : opening ? t("One sec…") : t("Hi there, {name}!", { name: t(name).toLowerCase() })}</p>
+        <h1 className="title big">{dictation.listening ? t("I’m listening") : dictation.transcribing ? t("Hearing you…") : opening ? t("Opening your photo…") : t("What do you need?")}</h1>
 
         {dictation.listening ? (
           <div className="ask-wave" aria-hidden="true">
@@ -116,7 +118,7 @@ export default function Home() {
           </div>
         ) : (
           <form className="ask-field" onSubmit={onSubmit}>
-            <label className="ask-cam" aria-label="Use a photo" aria-busy={opening}>
+            <label className="ask-cam" aria-label={t("Use a photo")} aria-busy={opening}>
               <svg {...svg} width="24" height="24" stroke="currentColor" strokeWidth="2.2">
                 <path d="M4 8h3l2-3h6l2 3h3v11H4z" />
                 <circle cx="12" cy="13" r="3.5" />
@@ -128,12 +130,12 @@ export default function Home() {
               type="text"
               value={text}
               onChange={(e) => setText(e.target.value)}
-              placeholder="Type it, or tap the mic…"
-              aria-label="What do you need?"
+              placeholder={t("Type it, or tap the mic…")}
+              aria-label={t("What do you need?")}
               maxLength={300}
               disabled={dictation.transcribing}
             />
-            <button type="submit" className="ask-send" aria-label="Send" disabled={!text.trim()}>
+            <button type="submit" className="ask-send" aria-label={t("Send")} disabled={!text.trim()}>
               <svg {...svg} width="22" height="22" stroke="currentColor" strokeWidth="2.6">
                 <path d="M5 12h14M13 6l6 6-6 6" />
               </svg>
@@ -145,7 +147,7 @@ export default function Home() {
           {dictation.listening ? (
             <>
               <span className="ask-stop" />
-              Stop
+              {t("Stop")}
             </>
           ) : (
             <>
@@ -153,7 +155,7 @@ export default function Home() {
                 <rect x="9" y="3" width="6" height="12" rx="3" />
                 <path d="M5 11a7 7 0 0 0 14 0M12 18v3" />
               </svg>
-              Tell Timber
+              {t("Tell Timber")}
             </>
           )}
         </button>
@@ -167,14 +169,14 @@ export default function Home() {
 
       {pending && !busy && (
         <section className="continue" aria-live="polite">
-          <span className="kicker">I HEARD</span>
+          <span className="kicker">{t("I HEARD")}</span>
           <h2 className="folder-title">{text}</h2>
           <div className="ask-actions">
             <button type="button" className="secondary" onClick={edit}>
-              Edit
+              {t("Edit")}
             </button>
             <button type="button" className="cta auto" onClick={() => go({ text })}>
-              <span>Send now</span>
+              <span>{t("Send now")}</span>
             </button>
           </div>
         </section>
@@ -183,11 +185,11 @@ export default function Home() {
       {!pending && !busy && (
         <>
           <section>
-            <p className="kicker">OR TRY ONE</p>
+            <p className="kicker">{t("OR TRY ONE")}</p>
             <div className="chips">
               {EXAMPLES.map((example) => (
-                <button key={example} type="button" className="ask-chip" onClick={() => go({ text: example })}>
-                  {example}
+                <button key={example} type="button" className="ask-chip" onClick={() => go({ text: t(example) })}>
+                  {t(example)}
                 </button>
               ))}
               <button
@@ -198,7 +200,7 @@ export default function Home() {
                   router.push("/build");
                 }}
               >
-                Try the demo
+                {t("Try the demo")}
               </button>
               <button
                 type="button"
@@ -208,7 +210,7 @@ export default function Home() {
                   router.push("/build");
                 }}
               >
-                Try the repair demo
+                {t("Try the repair demo")}
               </button>
             </div>
           </section>
@@ -216,7 +218,7 @@ export default function Home() {
           {manual && (
             <Link href={finished ? "/done" : "/build"} className="continue-row">
               <span>
-                <span className="kicker">CONTINUE · {finished ? "DONE" : `STEP ${current} OF ${steps}`}</span>
+                <span className="kicker">{t(finished ? "CONTINUE · DONE" : "CONTINUE · STEP {n} OF {total}", { n: current, total: steps })}</span>
                 <span className="folder-title">{manual.title}</span>
               </span>
               <span className="ask-send" aria-hidden="true">

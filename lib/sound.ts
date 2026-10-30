@@ -1,3 +1,4 @@
+import { tr } from "./i18n";
 import { getSettings } from "./settings";
 
 export type SoundId = "boop" | "whoosh" | "ding" | "pop" | "swoosh" | "snap" | "tuck" | "success" | "oops" | "level";
@@ -110,5 +111,5 @@ export function play(id: SoundId) {
     } catch {}
   }
   if (settings.vibration && buzz && "vibrate" in navigator) navigator.vibrate(buzz);
-  if (settings.captions) listeners.forEach((listener) => listener(label));
+  if (settings.captions) listeners.forEach((listener) => listener(tr(label)));
 }

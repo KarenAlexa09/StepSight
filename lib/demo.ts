@@ -1,3 +1,4 @@
+import { tr } from "./i18n";
 import type { Manual, Step } from "./manual";
 import { clearReplay, freshProgress, saveManual, saveProgress } from "./progress";
 
@@ -84,8 +85,15 @@ const LAMP: Manual = {
   ],
 };
 
+const localize = (m: Manual): Manual => ({
+  ...m,
+  title: tr(m.title),
+  prep: m.prep?.map((item) => tr(item)),
+  steps: m.steps.map((s) => ({ ...s, instruction: tr(s.instruction), check: tr(s.check) })),
+});
+
 export function startDemo(kind: Kind = "tower") {
-  saveManual(kind === "lamp" ? LAMP : TOWER);
+  saveManual(localize(kind === "lamp" ? LAMP : TOWER));
   saveProgress(freshProgress());
   clearReplay();
 }

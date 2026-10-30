@@ -13,6 +13,8 @@ export type Progress = {
   prepDone?: boolean;
   startedAt: number;
   finishedAt: number | null;
+  activeMs?: number;
+  lastAt?: number;
 };
 
 export type Build = { title: string; finishedAt: number; minutes: number; steps: number; stars: number; mistakes: number };
@@ -61,7 +63,23 @@ export const freshProgress = (): Progress => ({
 export const loadManual = () => read<Manual | null>(MANUAL_KEY, null);
 export const saveManual = (m: Manual) => write(MANUAL_KEY, m);
 export const loadProgress = () => read<Progress>(PROGRESS_KEY, freshProgress());
-export const saveProgress = (p: Progress) => write(PROGRESS_KEY, p);
+const IDLE_MS = 5 * 60_000;
+
+// Only time between taps counts, so a project left open overnight does not read as 2,000 minutes.
+export function saveProgress(p: Progress) {
+  const now = Date.now();
+  p.activeMs = (p.activeMs ?? 0) + Math.min(now - (p.lastAt ?? now), IDLE_MS);
+  p.lastAt = now;
+  write(PROGRESS_KEY, p);
+}
+
+export const minutesOf = (p: Progress) => Math.max(1, Math.round((p.activeMs ?? 0) / 60000));
+
+export function formatMinutes(minutes: number) {
+  if (minutes < 60) return `${minutes} min`;
+  const [h, m] = [Math.floor(minutes / 60), minutes % 60];
+  return m ? `${h} h ${m} min` : `${h} h`;
+}
 export const loadBuilds = () => read<Build[]>(BUILDS_KEY, []);
 export const saveBuilds = (b: Build[]) => write(BUILDS_KEY, b);
 

@@ -1,9 +1,11 @@
 "use client";
 
+import { useT } from "../lib/i18n";
 import { useState, type FormEvent } from "react";
 import type { useTimber } from "./useTimber";
 
 export default function AskBar({ timber, placeholder }: { timber: ReturnType<typeof useTimber>; placeholder: string }) {
+  const t = useT();
   const [text, setText] = useState("");
 
   function onSubmit(event: FormEvent) {
@@ -18,7 +20,7 @@ export default function AskBar({ timber, placeholder }: { timber: ReturnType<typ
         <button
           type="button"
           className="mic"
-          aria-label={timber.listening ? "Stop listening" : "Talk to Timber"}
+          aria-label={timber.listening ? t("Stop listening") : t("Talk to Timber")}
           aria-pressed={timber.listening}
           onClick={timber.listen}
         >
@@ -28,13 +30,13 @@ export default function AskBar({ timber, placeholder }: { timber: ReturnType<typ
           </svg>
         </button>
         <input
-          aria-label="Ask Timber"
+          aria-label={t("Ask Timber")}
           value={text}
           onChange={(e) => setText(e.target.value)}
-          placeholder={timber.listening ? "Listening…" : placeholder}
+          placeholder={timber.listening ? t("Listening…") : placeholder}
           maxLength={300}
         />
-        <button type="submit" className="send" aria-label="Send" disabled={!text.trim()}>
+        <button type="submit" className="send" aria-label={t("Send")} disabled={!text.trim()}>
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
             <path d="M5 12h14M13 6l6 6-6 6" />
           </svg>
@@ -42,7 +44,7 @@ export default function AskBar({ timber, placeholder }: { timber: ReturnType<typ
       </form>
       {(timber.thinking || timber.heard) && (
         <p className="heard" role="status">
-          {timber.thinking ? "Timber is thinking…" : `“${timber.heard}”`}
+          {timber.thinking ? t("Timber is thinking…") : `“${timber.heard}”`}
         </p>
       )}
     </div>

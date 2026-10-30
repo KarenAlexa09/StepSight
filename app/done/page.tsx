@@ -1,5 +1,6 @@
 "use client";
 
+import { useT } from "../../lib/i18n";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import Replay from "../../components/Replay";
@@ -7,9 +8,10 @@ import Timber from "../../components/Timber";
 import { shareCard } from "../../lib/card";
 import { play } from "../../lib/sound";
 import type { Manual } from "../../lib/manual";
-import { level, loadBuilds, loadManual, loadProgress, loadReplay, saveBuilds, type Progress } from "../../lib/progress";
+import { level, loadBuilds, loadManual, formatMinutes, loadProgress, loadReplay, minutesOf, saveBuilds, type Progress } from "../../lib/progress";
 
 export default function DonePage() {
+  const t = useT();
   const [manual, setManual] = useState<Manual | null>(null);
   const [progress, setProgress] = useState<Progress | null>(null);
   const [frames, setFrames] = useState<string[]>([]);
@@ -30,7 +32,7 @@ export default function DonePage() {
         {
           title: m.title,
           finishedAt: p.finishedAt,
-          minutes: Math.max(1, Math.round((p.finishedAt - p.startedAt) / 60000)),
+          minutes: minutesOf(p),
           steps: m.steps.length,
           stars: p.stars,
           mistakes: p.mistakes,
@@ -49,10 +51,10 @@ export default function DonePage() {
       <main className="screen paper" aria-busy={!ready}>
         {ready && (
           <>
-            <h1 className="title big">Nothing finished yet</h1>
+            <h1 className="title big">{t("Nothing finished yet")}</h1>
             <Timber pose="reading" size={96} />
             <Link href="/#ask" className="primary">
-              Start a project
+              {t("Start a project")}
             </Link>
           </>
         )}
@@ -60,22 +62,22 @@ export default function DonePage() {
     );
   }
 
-  const minutes = Math.max(1, Math.round(((progress.finishedAt ?? Date.now()) - progress.startedAt) / 60000));
+  const minutes = minutesOf(progress);
   const { name, next } = level(progress.xp);
 
   return (
     <main className="screen paper done">
       <div className="row-between">
-        <span className="chip hi">Level · {name}</span>
+        <span className="chip hi">{t("Level · {name}", { name: t(name) })}</span>
         <span className="chip">
           ★ {progress.stars}/{manual.steps.length}
         </span>
       </div>
 
       <div>
-        <h1 className="title huge">{manual.mode === "fix" ? "You fixed it." : "You built it."}</h1>
+        <h1 className="title huge">{manual.mode === "fix" ? t("You fixed it.") : t("You built it.")}</h1>
         <p className="hand big">
-          {manual.title} · {minutes} min · I just watched.
+          {manual.title} · {formatMinutes(minutes)} · {t("I just watched.")}
         </p>
       </div>
 
@@ -90,16 +92,16 @@ export default function DonePage() {
 
       <div className="stat3">
         <span>
-          <b>{minutes} min</b>time
+          <b>{formatMinutes(minutes)}</b>{t("time")}
         </span>
         <span>
           <b>
             {progress.stars}/{manual.steps.length}
           </b>
-          first try
+          {t("first try")}
         </span>
         <span>
-          <b>{progress.mistakes}</b>mistakes caught
+          <b>{progress.mistakes}</b>{t("mistakes caught")}
         </span>
       </div>
 
@@ -109,7 +111,7 @@ export default function DonePage() {
         </span>
         <p className="mono row-between">
           <span>{progress.xp} xp</span>
-          <span>{next ? `next level at ${next}` : "max level"}</span>
+          <span>{next ? t("next level at {n}", { n: next }) : t("max level")}</span>
         </p>
       </div>
 
@@ -127,19 +129,19 @@ export default function DonePage() {
               steps: manual.steps.length,
               mistakes: progress.mistakes,
               photo: frames[frames.length - 1],
-            });
+            }, frames);
           } catch {}
           setSharing(false);
         }}
       >
-        {sharing ? "Making your card…" : "Share my replay"}
+        {sharing ? t("Making your card…") : t("Share my replay")}
       </button>
       <div className="row">
         <Link href="/gallery" className="secondary">
-          Gallery
+          {t("Gallery")}
         </Link>
         <Link href="/" className="secondary">
-          Home
+          {t("Home")}
         </Link>
       </div>
     </main>

@@ -1,5 +1,6 @@
 "use client";
 
+import { tr, useT } from "../../lib/i18n";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
@@ -38,21 +39,22 @@ const AUTO_SLOW_MS = 2800;
 
 function kicker(s: Step) {
   const type = s.motion?.type;
-  if (type === "connect") return "CONNECT";
-  if (type === "move") return "MOVE";
-  if (type === "remove") return "TAKE OFF";
-  return { do: "DO IT", find: "FIND IT", verify: "BUILD" }[kindOf(s)];
+  if (type === "connect") return tr("CONNECT");
+  if (type === "move") return tr("MOVE");
+  if (type === "remove") return tr("TAKE OFF");
+  return { do: tr("DO IT"), find: tr("FIND IT"), verify: tr("BUILD") }[kindOf(s)];
 }
 
 const HAZARD_TEXT = {
   none: "",
-  electric: "Power is the risk here. Unplug it before anything else.",
-  gas: "Gas is the risk here. Turn it off before anything else.",
-  sharp: "Sharp edges. Take your time and keep your fingers clear.",
-  heavy: "This is heavy. Get a second pair of hands before you lift.",
+  electric: tr("Power is the risk here. Unplug it before anything else."),
+  gas: tr("Gas is the risk here. Turn it off before anything else."),
+  sharp: tr("Sharp edges. Take your time and keep your fingers clear."),
+  heavy: tr("This is heavy. Get a second pair of hands before you lift."),
 };
 
 export default function BuildPage() {
+  const t = useT();
   const router = useRouter();
   const camera = useRef<CameraHandle>(null);
   const advanceTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
@@ -113,7 +115,7 @@ export default function BuildPage() {
     setSimple("");
     setHelp(false);
     setHeld(false);
-    setStatus(`Step ${i + 1} of ${manual.steps.length}`);
+    setStatus(t("Step {i} of {n}", { i: i + 1, n: manual.steps.length }));
     if (speak) timber.say(s.instruction);
   }
 
@@ -149,7 +151,7 @@ export default function BuildPage() {
     if (phase === "checking") return;
     setPhase("checking");
     setPiece(null);
-    setStatus("Timber is checking your build…");
+    setStatus(t("Timber is checking your build…"));
     if (manual?.demo) {
       setDemoAfter(true);
       await new Promise((r) => setTimeout(r, 600));
@@ -157,7 +159,7 @@ export default function BuildPage() {
     const shot = camera.current?.capture();
     if (!shot) {
       setPhase("work");
-      setStatus("Camera isn't ready yet");
+      setStatus(t("Camera isn't ready yet"));
       return;
     }
     try {
@@ -173,7 +175,7 @@ export default function BuildPage() {
       const result: Check = await res.json();
       if (!res.ok) throw new Error((result as unknown as { error: string }).error);
       setCheck(result);
-      setStatus(result.done ? "Step checked" : "Needs a fix");
+      setStatus(result.done ? t("Step checked") : t("Needs a fix"));
       if (!result.done) timber.say(result.fix || result.reply);
       if (result.done) {
         thumb(shot.image, 560).then(addReplayFrame);
@@ -199,7 +201,7 @@ export default function BuildPage() {
       }
     } catch (error) {
       setPhase("work");
-      setStatus(error instanceof Error && error.message ? error.message : "Couldn't check. Try again.");
+      setStatus(error instanceof Error && error.message ? t(error.message) : t("Couldn't check. Try again."));
     }
   }
 
@@ -251,7 +253,7 @@ export default function BuildPage() {
       setSimple(intent.reply);
       timber.say(intent.reply);
     } catch {
-      setSimple("Do what the card says, one small move at a time.");
+      setSimple(t("Do what the card says, one small move at a time."));
     }
   }
 
@@ -282,17 +284,17 @@ export default function BuildPage() {
     return (
       <main className="screen paper">
         <header className="top">
-          <Link href="/" className="round" aria-label="Home">
+          <Link href="/" className="round" aria-label={t("Home")}>
             ←
           </Link>
-          <span className="chip">Projects</span>
+          <span className="chip">{t("Projects")}</span>
         </header>
         <div className="hero">
-          <h1 className="title big">No project yet</h1>
+          <h1 className="title big">{t("No project yet")}</h1>
           <Timber pose="reading" size={96} />
         </div>
         <Link href="/#ask" className="primary">
-          Start one
+          {t("Start one")}
         </Link>
       </main>
     );
@@ -302,7 +304,7 @@ export default function BuildPage() {
     return (
       <main className="screen paper build v3" aria-busy="true">
         <header className="top">
-          <Link href="/" className="round" aria-label="Home">
+          <Link href="/" className="round" aria-label={t("Home")}>
             ✕
           </Link>
         </header>
@@ -323,14 +325,14 @@ export default function BuildPage() {
     return (
       <main className="screen paper build">
         <header className="top">
-          <Link href="/" className="round" aria-label="Home">
+          <Link href="/" className="round" aria-label={t("Home")}>
             ✕
           </Link>
-          <span className="chip">Before you start</span>
+          <span className="chip">{t("Before you start")}</span>
         </header>
         <div className="hero">
           <h1 className="title big">
-            Let&apos;s get <mark>ready</mark>
+            {t("Let's get")} <mark>{t("ready")}</mark>
           </h1>
           <Timber pose="reading" size={110} />
         </div>
@@ -338,7 +340,7 @@ export default function BuildPage() {
         <SourceTag manual={manual} />
         {hazardous && (
           <p className="hazard" role="alert">
-            <b>Safety first.</b> {HAZARD_TEXT[manual.hazard!]}
+            <b>{t("Safety first.")}</b> {HAZARD_TEXT[manual.hazard!]}
           </p>
         )}
         <ul className="prep">
@@ -356,11 +358,11 @@ export default function BuildPage() {
           ))}
         </ul>
         <p className="tip">
-          {total} steps. Some need no photo: just do them and tap Done. I&apos;ll only check with a camera when it helps.
+          {t("{n} steps. Some need no photo: just do them and tap Done. I'll only check with a camera when it helps.", { n: total })}
         </p>
         <div className="grow" />
         <button type="button" className="primary sticky" onClick={startSteps} disabled={hazardous && !ticked.includes(0)}>
-          {hazardous && !ticked.includes(0) ? "Tick the first item to start" : ticked.length === manual.prep.length ? "Ready, let's go" : "Start anyway"}
+          {hazardous && !ticked.includes(0) ? t("Tick the first item to start") : ticked.length === manual.prep.length ? t("Ready, let's go") : t("Start anyway")}
         </button>
       </main>
     );
@@ -369,12 +371,12 @@ export default function BuildPage() {
   return (
     <main className="screen paper build v3">
       <header className="top">
-        <Link href="/" className="round" aria-label="Home">
+        <Link href="/" className="round" aria-label={t("Home")}>
           ✕
         </Link>
         <div className="stepmeta">
           <span className="mono">
-            Step {progress.step + 1} of {total}
+            {t("Step {i} of {n}", { i: progress.step + 1, n: total })}
           </span>
           <span className="dots" style={{ gridTemplateColumns: `repeat(${total}, minmax(0, 1fr))` }} aria-hidden="true">
             {Array.from({ length: total }, (_, i) => (
@@ -385,7 +387,7 @@ export default function BuildPage() {
         <button
           type="button"
           className="round"
-          aria-label={settings.sound ? "Sound is on. Tap to mute" : "Sound is off. Tap to turn on"}
+          aria-label={settings.sound ? t("Sound is on. Tap to mute") : t("Sound is off. Tap to turn on")}
           aria-pressed={settings.sound}
           onClick={() => setSettings({ sound: !settings.sound })}
         >
@@ -407,7 +409,7 @@ export default function BuildPage() {
         />
         {phase === "checking" && <span className="scan" aria-hidden="true" />}
         <span className="stage-status" role="status">
-          {status}
+          {t(status)}
         </span>
         {(phase === "work" || phase === "fix") && (target || phase === "fix") && (
           <button
@@ -422,7 +424,7 @@ export default function BuildPage() {
               <circle cx="12" cy="12" r="3" />
               <path d="M12 3v4M12 17v4M3 12h4M17 12h4" />
             </svg>
-            Show me
+            {t("Show me")}
           </button>
         )}
         {phase === "correct" && (
@@ -440,13 +442,13 @@ export default function BuildPage() {
               </svg>
             </span>
             <div className="verdict-text">
-              <b>Solid!</b>
-              <span className="hand">{check?.reply || "Looks just right."}</span>
-              {check?.seen && <small className="seen">Seen: {check.seen}</small>}
+              <b>{t("Solid!")}</b>
+              <span className="hand">{check?.reply || t("Looks just right.")}</span>
+              {check?.seen && <small className="seen">{t("Seen:")} {check.seen}</small>}
             </div>
             <div className="verdict-stats">
               <span className="sticker">+{earned.xp} xp</span>
-              <span className="sticker hi">{earned.firstTry ? "first try" : "fixed it"}</span>
+              <span className="sticker hi">{earned.firstTry ? t("first try") : t("fixed it")}</span>
             </div>
           </div>
         )}
@@ -456,15 +458,15 @@ export default function BuildPage() {
               <Timber pose="oops" size={84} />
             </span>
             <div className="verdict-text">
-              <b>Almost.</b>
+              <b>{t("Almost.")}</b>
               <span>{check?.problem}</span>
               {check?.fix && <span className="hand">{check.fix}</span>}
             </div>
             {piece && (
               <figure className="verdict-piece">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={piece} alt={`Close-up of the ${targetOf(step)}`} />
-                <figcaption>this one</figcaption>
+                <img src={piece} alt={t("Close-up of the {name}", { name: targetOf(step) })} />
+                <figcaption>{t("this one")}</figcaption>
               </figure>
             )}
           </div>
@@ -491,28 +493,28 @@ export default function BuildPage() {
         disabled={phase === "checking"}
       >
         {phase === "checking"
-          ? "Checking…"
+          ? t("Checking…")
           : phase === "correct"
             ? progress.step >= total - 1
-              ? "Finish"
-              : "Next step →"
+              ? t("Finish")
+              : t("Next step →")
             : phase === "fix"
-              ? "Check again"
+              ? t("Check again")
               : kind === "verify"
-                ? "Check my step"
-                : "Done"}
+                ? t("Check my step")
+                : t("Done")}
       </button>
       <div className="row3">
         <button type="button" className="secondary" onClick={() => setHelp(true)}>
-          I&apos;m lost
+          {t("I'm lost")}
         </button>
         <button type="button" className="secondary" onClick={advance} disabled={step.safety}>
-          {step.safety ? "Safety step" : "Skip step"}
+          {step.safety ? t("Safety step") : t("Skip step")}
         </button>
         <button
           type="button"
           className="round mic"
-          aria-label={timber.listening ? "Stop listening" : "Talk to Timber"}
+          aria-label={timber.listening ? t("Stop listening") : t("Talk to Timber")}
           aria-pressed={timber.listening}
           onClick={timber.listen}
         >
@@ -524,7 +526,7 @@ export default function BuildPage() {
       </div>
       {(timber.thinking || timber.heard) && (
         <p className="heard" role="status">
-          {timber.thinking ? "Timber is thinking…" : `“${timber.heard}”`}
+          {timber.thinking ? t("Timber is thinking…") : `“${timber.heard}”`}
         </p>
       )}
 

@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { tr } from "../lib/i18n";
 import { getSettings } from "../lib/settings";
 import type { Intent } from "../lib/spark";
 import { useDictation } from "./useDictation";
@@ -51,7 +52,7 @@ export function useTimber(onIntent: (intent: Intent) => void, step?: StepContext
       if (!res.ok) throw new Error(intent.error);
       onIntent(intent);
     } catch (error) {
-      setHeard(error instanceof Error && error.message ? error.message : "Timber didn't get that");
+      setHeard(error instanceof Error && error.message ? tr(error.message) : tr("Timber didn't get that"));
     } finally {
       setThinking(false);
     }

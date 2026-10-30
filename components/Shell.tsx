@@ -13,7 +13,8 @@ export default function Shell() {
     const root = document.documentElement;
     root.classList.toggle("slow", settings.slow);
     root.classList.toggle("big", settings.big);
-  }, [settings.slow, settings.big]);
+    root.lang = settings.lang;
+  }, [settings.slow, settings.big, settings.lang]);
 
   useEffect(
     () =>
