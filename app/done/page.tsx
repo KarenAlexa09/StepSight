@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import Replay from "../../components/Replay";
 import Timber from "../../components/Timber";
 import { shareCard } from "../../lib/card";
+import { thumb } from "../../lib/image";
 import { play } from "../../lib/sound";
 import type { Manual } from "../../lib/manual";
 import { level, loadBuilds, loadManual, formatMinutes, loadProgress, loadReplay, minutesOf, saveBuilds, type Progress } from "../../lib/progress";
@@ -27,19 +28,23 @@ export default function DonePage() {
     setFrames(loadReplay());
     if (!m || !p.finishedAt) return;
     const builds = loadBuilds();
-    if (!builds.some((b) => b.finishedAt === p.finishedAt)) {
+    if (builds.some((b) => b.finishedAt === p.finishedAt)) return;
+    const last = loadReplay().at(-1);
+    (last ? thumb(last, 240) : Promise.resolve(undefined)).then((photo) =>
       saveBuilds([
         {
           title: m.title,
-          finishedAt: p.finishedAt,
+          finishedAt: p.finishedAt!,
           minutes: minutesOf(p),
           steps: m.steps.length,
           stars: p.stars,
           mistakes: p.mistakes,
+          mode: m.mode,
+          photo,
         },
         ...builds,
-      ]);
-    }
+      ]),
+    );
   }, []);
 
   useEffect(() => {
@@ -66,81 +71,91 @@ export default function DonePage() {
   const { name, next } = level(progress.xp);
 
   return (
-    <main className="screen paper done">
-      <div className="row-between">
-        <span className="chip hi">{t("Level · {name}", { name: t(name) })}</span>
-        <span className="chip">
-          ★ {progress.stars}/{manual.steps.length}
-        </span>
+    <main className="screen c c-done">
+      <div className="c-done-hero">
+        {frames.length ? (
+          <Replay frames={frames} />
+        ) : (
+          // eslint-disable-next-line @next/next/no-img-element
+          manual.demo ? <img className="c-done-photo" src={`/demo/anim-${manual.demo}-${manual.steps.length}.jpg`} alt="" /> : <span className="c-done-photo" />
+        )}
+        <Timber pose="celebrate" size={120} move="hop" className="c-done-timber" />
       </div>
 
       <div>
-        <h1 className="title huge">{manual.mode === "fix" ? t("You fixed it.") : t("You built it.")}</h1>
-        <p className="hand big">
-          {manual.title} · {formatMinutes(minutes)} · {t("I just watched.")}
+        <h1 className="c-h1" style={{ fontSize: 40, lineHeight: "44px" }}>
+          {manual.mode === "fix" ? t("You fixed it!") : t("You built it!")}
+        </h1>
+        <p className="c-muted">
+          {manual.title} · {t("I just watched.")}
         </p>
       </div>
 
-      {frames.length ? (
-        <div className="done-hero">
-          <span className="done-timber">
-            <Timber pose="lean" size={88} />
-          </span>
-          <Replay frames={frames} />
-        </div>
-      ) : (<div className="grow center"><Timber pose="hardhat" move="none" size={110} /></div>)}
-
-      <div className="stat3">
+      <div className="c-stats">
         <span>
-          <b>{formatMinutes(minutes)}</b>{t("time")}
+          <b>{formatMinutes(minutes)}</b>
+          {t("time")}
         </span>
         <span>
           <b>
-            {progress.stars}/{manual.steps.length}
+            {progress.stars} / {manual.steps.length}
           </b>
           {t("first try")}
         </span>
         <span>
-          <b>{progress.mistakes}</b>{t("mistakes caught")}
+          <b>{progress.mistakes}</b>
+          {t("mistakes caught")}
         </span>
       </div>
 
       <div>
-        <span className="progress thick">
+        <p className="c-row-between">
+          <b>
+            {t(name)} · {progress.xp} XP
+          </b>
+          <span className="c-muted" style={{ fontSize: 13 }}>
+            {next ? t("next level at {n}", { n: next }) : t("max level")}
+          </span>
+        </p>
+        <span className="c-xp">
           <span style={{ width: `${next ? Math.min(100, (progress.xp / next) * 100) : 100}%` }} />
         </span>
-        <p className="mono row-between">
-          <span>{progress.xp} xp</span>
-          <span>{next ? t("next level at {n}", { n: next }) : t("max level")}</span>
-        </p>
       </div>
 
+      <div className="c-grow" />
       <button
         type="button"
-        className="cta"
+        className="c-btn"
         disabled={sharing}
         onClick={async () => {
           setSharing(true);
           try {
-            await shareCard({
-              title: manual.title,
-              minutes,
-              stars: progress.stars,
-              steps: manual.steps.length,
-              mistakes: progress.mistakes,
-              photo: frames[frames.length - 1],
-            }, frames);
+            await shareCard(
+              {
+                title: manual.title,
+                minutes,
+                stars: progress.stars,
+                steps: manual.steps.length,
+                mistakes: progress.mistakes,
+                photo: frames[frames.length - 1],
+              },
+              frames,
+            );
           } catch {}
           setSharing(false);
         }}
       >
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <path d="M12 15V3M7 8l5-5 5 5" />
+          <path d="M5 13v7h14v-7" />
+        </svg>
         {sharing ? t("Making your card…") : t("Share my replay")}
       </button>
-      <div className="row">
-        <Link href="/gallery" className="secondary">
+      <div className="c-chips">
+        <Link href="/gallery" className="c-link">
           {t("Gallery")}
         </Link>
-        <Link href="/" className="secondary">
+        <Link href="/" className="c-link">
           {t("Home")}
         </Link>
       </div>

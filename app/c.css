@@ -1076,3 +1076,643 @@ html.slow .c-anim-frame img {
   font-size: 15px;
   color: var(--pencil);
 }
+
+/* ---------- step screen (C3 / C4 / C8): camera on top, white sheet below ---------- */
+
+/* exactly one screen tall: the camera takes what the sheet leaves, so the button never falls off */
+.screen.c-step {
+  padding: 0;
+  gap: 0;
+  height: 100dvh;
+  min-height: 0;
+  overflow: hidden;
+  background: #fff;
+}
+
+.c-cam {
+  position: relative;
+  flex: 1;
+  min-height: 38dvh;
+  overflow: hidden;
+  background: #151515;
+}
+
+.c-cam > .stage {
+  position: absolute;
+  inset: 0;
+  height: auto;
+  min-height: 0;
+  border-radius: 0;
+}
+
+.c-cam > .c-anim {
+  border-radius: 0;
+}
+
+.c-cam-top {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  padding: 14px 16px 24px;
+  background: linear-gradient(rgba(21, 21, 21, 0.5), rgba(21, 21, 21, 0));
+  pointer-events: none;
+}
+
+.c-cam-top > * {
+  pointer-events: auto;
+}
+
+.c-segs {
+  display: flex;
+  gap: 4px;
+}
+
+.c-segs span {
+  flex: 1;
+  height: 3px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.35);
+}
+
+.c-segs .done {
+  background: #fff;
+}
+
+.c-segs .now {
+  background: var(--highlighter);
+}
+
+.c-cam-bar {
+  margin-top: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.c-cam-label {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  color: #fff;
+}
+
+.c-glass {
+  width: 44px;
+  height: 44px;
+  border-radius: 22px;
+  border: none;
+  background: rgba(255, 255, 255, 0.92);
+  color: var(--ink);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.c-glass.on {
+  background: var(--highlighter);
+}
+
+.c-glass:disabled {
+  opacity: 0.5;
+}
+
+.c-cam-bottom {
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  bottom: 36px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+
+.c-pill {
+  min-height: 40px;
+  padding: 0 14px;
+  border: none;
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.92);
+  color: var(--ink);
+  font: 600 14px var(--font-sans), sans-serif;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+}
+
+.c-sheet {
+  position: relative;
+  z-index: 2;
+  flex: none;
+  max-height: 62dvh;
+  overflow-y: auto;
+  margin-top: -24px;
+  padding: 22px 20px max(20px, env(safe-area-inset-bottom));
+  border-radius: 24px 24px 0 0;
+  background: #fff;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  animation: c-in 0.35s ease both;
+}
+
+.c-sheet.ok {
+  background: var(--highlighter);
+}
+
+.c-sheet .c-h1 {
+  font-size: 24px;
+  line-height: 30px;
+}
+
+.c-sheet.ok .c-h1,
+.c-sheet.fix .c-h1 {
+  font-size: 32px;
+  line-height: 36px;
+}
+
+.c-sheet-text {
+  margin: 4px 0 0;
+  font-size: 15px;
+  line-height: 21px;
+}
+
+.c-sheet-meta {
+  margin: 6px 0 0;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.c-sheet .c-ask {
+  align-items: center;
+}
+
+.c-sheet .c-btn {
+  width: 100%;
+}
+
+.c-sheet.ok .c-btn {
+  background: var(--ink);
+}
+
+.c-shutter {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 2.5px solid var(--highlighter);
+  box-sizing: border-box;
+}
+
+.c-sheet-links {
+  display: flex;
+  justify-content: space-between;
+}
+
+.c-sheet-links .c-link:disabled {
+  opacity: 0.5;
+}
+
+.c-flip {
+  transform: scaleX(-1);
+}
+
+.c-piece {
+  margin: 0;
+  flex: none;
+  text-align: center;
+  font-size: 11px;
+  color: var(--pencil);
+}
+
+.c-piece img {
+  display: block;
+  width: 72px;
+  height: 72px;
+  border-radius: 14px;
+  border: 3px solid var(--highlighter);
+  object-fit: cover;
+}
+
+/* ---------- help sheet (C9) ---------- */
+
+.c-help {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 12px 20px max(20px, env(safe-area-inset-bottom));
+}
+
+.c-help .c-ask {
+  align-items: center;
+}
+
+.c-opts {
+  display: flex;
+  flex-direction: column;
+}
+
+.c-opt {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 0;
+  border: none;
+  border-bottom: 1px solid #efede8;
+  background: transparent;
+  color: var(--ink);
+  text-align: left;
+  text-decoration: none;
+  font-family: var(--font-sans), sans-serif;
+  cursor: pointer;
+}
+
+.c-opt b {
+  display: block;
+  font-size: 16px;
+  font-weight: 500;
+}
+
+.c-opt small {
+  display: block;
+  margin-top: 2px;
+  font-size: 13px;
+  color: var(--pencil);
+}
+
+.c-opt-icon {
+  width: 40px;
+  height: 40px;
+  flex: none;
+  border-radius: 20px;
+  background: var(--soft);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.c-opt-icon.hi {
+  background: var(--highlighter);
+}
+
+.c-opts .askbar {
+  padding: 8px 0 4px;
+}
+
+.c-toggles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.c-toggles button {
+  min-height: 36px;
+  padding: 0 12px;
+  border-radius: 18px;
+  border: 1px solid var(--line);
+  background: #fff;
+  color: var(--ink);
+  font: 500 13px var(--font-sans), sans-serif;
+  cursor: pointer;
+}
+
+.c-toggles button[aria-pressed="true"] {
+  border-color: var(--ink);
+  background: var(--ink);
+  color: #fff;
+}
+
+/* ---------- done (C10) ---------- */
+
+.c-done-hero {
+  position: relative;
+  margin-top: 12px;
+  margin-bottom: 28px;
+}
+
+.c-done-hero .replay,
+.c-done-photo {
+  display: block;
+  width: 100%;
+  height: 300px;
+  border: none;
+  border-radius: 22px;
+  box-shadow: none;
+  overflow: hidden;
+  object-fit: cover;
+  background: var(--soft);
+}
+
+.c-done-hero .replay img {
+  height: 300px;
+}
+
+.replay-toggle {
+  position: absolute;
+  left: 12px;
+  bottom: 12px;
+}
+
+.c-done-timber {
+  position: absolute;
+  right: 4px;
+  bottom: -40px;
+}
+
+.c-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.c-stats span {
+  padding: 12px;
+  border-radius: 14px;
+  background: var(--soft);
+  font-size: 12px;
+  color: var(--pencil);
+}
+
+.c-stats b {
+  display: block;
+  font-size: 22px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.c-row-between {
+  margin: 0 0 8px;
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-size: 13px;
+}
+
+.c-xp {
+  display: block;
+  height: 8px;
+  border-radius: 4px;
+  background: var(--soft);
+  overflow: hidden;
+}
+
+.c-xp span {
+  display: block;
+  height: 8px;
+  border-radius: 4px;
+  background: var(--highlighter);
+  box-shadow: inset 0 0 0 1.5px var(--ink);
+}
+
+/* ---------- gallery (C11) ---------- */
+
+.c-gallery {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.c-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.c-card-photo {
+  position: relative;
+  height: 190px;
+  border-radius: 18px;
+  overflow: hidden;
+  background: var(--soft);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.c-card-photo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.c-card b {
+  font-size: 15px;
+  font-weight: 500;
+}
+
+.c-card small {
+  font-size: 12px;
+  color: var(--pencil);
+}
+
+.c-tag {
+  position: absolute;
+  left: 8px;
+  top: 8px;
+  height: 22px;
+  padding: 0 8px;
+  border-radius: 11px;
+  background: rgba(255, 255, 255, 0.92);
+  font-size: 11px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+}
+
+.c-card-new {
+  height: 190px;
+  border-radius: 18px;
+  border: 1.5px dashed #d6d3cc;
+  color: var(--pencil);
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: 500;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+/* ---------- find (C12): camera + search on top, sheet, menu below ---------- */
+
+.screen.c-find {
+  height: calc(100dvh - 84px);
+}
+
+.c-find .c-cam {
+  min-height: 50dvh;
+}
+
+.c-find .c-cam-top .ask {
+  background: #fff;
+}
+
+.c-find .c-cam-top .heard {
+  display: none;
+}
+
+.c-find .c-sheet {
+  gap: 12px;
+}
+
+.c-chip[aria-pressed="true"] {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: #fff;
+}
+
+.c-live-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 4px;
+  background: var(--highlighter);
+}
+
+/* ---------- parts (C7) ---------- */
+
+.c-parts-photo {
+  position: relative;
+  aspect-ratio: 1;
+  border-radius: 20px;
+  overflow: hidden;
+  background: var(--soft);
+}
+
+.c-parts-photo > img,
+.c-parts-photo > svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.c-parts-empty {
+  position: absolute;
+  inset: 0;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  text-align: center;
+  font-size: 15px;
+  color: var(--pencil);
+  cursor: pointer;
+}
+
+.c-parts-empty input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}
+
+.c-colors {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.c-colors button {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 0;
+  border: none;
+  border-bottom: 1px solid #efede8;
+  background: none;
+  color: var(--ink);
+  font: 400 15px var(--font-sans), sans-serif;
+  text-align: left;
+  text-transform: capitalize;
+  cursor: pointer;
+}
+
+.c-colors li:last-child button {
+  border-bottom: none;
+}
+
+.c-colors button[aria-pressed="true"] {
+  font-weight: 600;
+}
+
+.c-colors .c-muted {
+  font-size: 14px;
+  text-transform: none;
+}
+
+.c-swatch {
+  width: 14px;
+  height: 14px;
+  flex: none;
+  border-radius: 7px;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.15);
+}
+
+.c-badge {
+  height: 24px;
+  padding: 0 10px;
+  border-radius: 12px;
+  background: var(--ink);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  text-transform: none;
+}
+
+/* notices inside the camera sit above the overlapping sheet */
+.c-cam .stage .hint,
+.c-cam .stage .steady {
+  bottom: 40px;
+}
+
+/* ---------- before you start ---------- */
+
+.c-safety {
+  margin: 0;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: var(--highlighter);
+  font-size: 15px;
+  line-height: 21px;
+}
+
+.c-prep {
+  padding: 6px 16px;
+  border-radius: 16px;
+  border: 1px solid var(--line);
+  display: flex;
+  flex-direction: column;
+}
+
+.c-prep label {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  padding: 12px 0;
+  border-bottom: 1px solid #efede8;
+  font-size: 15px;
+  line-height: 21px;
+  cursor: pointer;
+}
+
+.c-prep label:last-child {
+  border-bottom: none;
+}
+
+.c-prep input {
+  width: 20px;
+  height: 20px;
+  margin: 0;
+  flex: none;
+  accent-color: var(--ink);
+}

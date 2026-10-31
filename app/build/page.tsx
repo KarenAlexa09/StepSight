@@ -4,7 +4,6 @@ import { tr, useT } from "../../lib/i18n";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import ActionIcon from "../../components/ActionIcon";
 import { demoPhoto } from "../../lib/demo";
 import CameraStage, { type CameraHandle } from "../../components/CameraStage";
 import HelpSheet from "../../components/HelpSheet";
@@ -25,7 +24,7 @@ import {
   XP_STEP,
   type Progress,
 } from "../../lib/progress";
-import { getSettings, setSettings, useSettings } from "../../lib/settings";
+import { getSettings } from "../../lib/settings";
 import { play } from "../../lib/sound";
 import type { Check, Intent } from "../../lib/spark";
 
@@ -59,7 +58,6 @@ export default function BuildPage() {
   const router = useRouter();
   const camera = useRef<CameraHandle>(null);
   const advanceTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
-  const settings = useSettings();
   const [manual, setManual] = useState<Manual | null>(null);
   const [progress, setProgress] = useState<Progress | null>(null);
   const [target, setTarget] = useState("");
@@ -336,82 +334,60 @@ export default function BuildPage() {
 
   if (manual.prep?.length && !progress.prepDone) {
     return (
-      <main className="screen paper build">
-        <header className="top">
-          <Link href="/" className="round" aria-label={t("Home")}>
-            ✕
+      <main className="screen c">
+        <header className="c-top">
+          <Link href="/" className="c-back" aria-label={t("Home")}>
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M15 6l-6 6 6 6" />
+            </svg>
           </Link>
-          <span className="chip">{t("Before you start")}</span>
         </header>
-        <div className="hero">
-          <h1 className="title big">
-            {t("Let's get")} <mark>{t("ready")}</mark>
-          </h1>
-          <Timber pose="reading" size={110} />
+        <div className="c-ask">
+          <div className="c-grow">
+            <p className="kicker">{t("BEFORE YOU START · {n} STEPS", { n: total })}</p>
+            <h1 className="c-h1" style={{ marginTop: 6 }}>
+              {manual.title}
+            </h1>
+          </div>
+          <Timber pose="reading" size={72} move="none" />
         </div>
-        <p className="hand">{manual.title}</p>
         <SourceTag manual={manual} />
         {hazardous && (
-          <p className="hazard" role="alert">
+          <p className="c-safety" role="alert">
             <b>{t("Safety first.")}</b> {HAZARD_TEXT[manual.hazard!]}
           </p>
         )}
-        <ul className="prep">
+        <div className="c-prep">
           {manual.prep.map((item, i) => (
-            <li key={i}>
-              <label>
-                <input
-                  type="checkbox"
-                  checked={ticked.includes(i)}
-                  onChange={() => setTicked((t) => (t.includes(i) ? t.filter((n) => n !== i) : [...t, i]))}
-                />
-                <span>{item}</span>
-              </label>
-            </li>
+            <label key={i}>
+              <input
+                type="checkbox"
+                checked={ticked.includes(i)}
+                onChange={() => setTicked((t) => (t.includes(i) ? t.filter((n) => n !== i) : [...t, i]))}
+              />
+              <span>{item}</span>
+            </label>
           ))}
-        </ul>
-        <p className="tip">
-          {t("{n} steps. Some need no photo: just do them and tap Done. I'll only check with a camera when it helps.", { n: total })}
+        </div>
+        <p className="c-muted" style={{ fontSize: 13 }}>
+          {t("Some steps need no photo: just do them and tap Done. I'll only check with a camera when it helps.")}
         </p>
-        <div className="grow" />
-        <button type="button" className="primary sticky" onClick={startSteps} disabled={hazardous && !ticked.includes(0)}>
-          {hazardous && !ticked.includes(0) ? t("Tick the first item to start") : ticked.length === manual.prep.length ? t("Ready, let's go") : t("Start anyway")}
-        </button>
+        <div className="c-grow" />
+        <div className="c-sticky">
+          <button type="button" className="c-btn" onClick={startSteps} disabled={hazardous && !ticked.includes(0)}>
+            {hazardous && !ticked.includes(0) ? t("Tick the first item to start") : ticked.length === manual.prep.length ? t("Ready, let's go") : t("Start anyway")}
+          </button>
+        </div>
       </main>
     );
   }
 
-  return (
-    <main className="screen paper build v3">
-      <header className="top">
-        <Link href="/" className="round" aria-label={t("Home")}>
-          ✕
-        </Link>
-        <div className="stepmeta">
-          <span className="mono">
-            {t("Step {i} of {n}", { i: progress.step + 1, n: total })}
-          </span>
-          <span className="dots" style={{ gridTemplateColumns: `repeat(${total}, minmax(0, 1fr))` }} aria-hidden="true">
-            {Array.from({ length: total }, (_, i) => (
-              <span key={i} className={i < progress.step ? "done" : i === progress.step ? "now" : ""} />
-            ))}
-          </span>
-        </div>
-        <button
-          type="button"
-          className="round"
-          aria-label={settings.sound ? t("Sound is on. Tap to mute") : t("Sound is off. Tap to turn on")}
-          aria-pressed={settings.sound}
-          onClick={() => setSettings({ sound: !settings.sound })}
-        >
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-            <path d="M4 9v6h4l5 4V5L8 9z" />
-            {settings.sound ? <path d="M16 9a4 4 0 0 1 0 6M18.5 6.5a8 8 0 0 1 0 11" /> : <path d="M17 9l5 6M22 9l-5 6" />}
-          </svg>
-        </button>
-      </header>
+  const icon = { viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 2.2, strokeLinecap: "round", strokeLinejoin: "round", "aria-hidden": true } as const;
+  const sheetTone = phase === "correct" ? " ok" : phase === "fix" ? " fix" : "";
 
-      <div className={`stage-wrap ${phase}`}>
+  return (
+    <main className="screen build c-step">
+      <div className="c-cam">
         <CameraStage
           ref={camera}
           live={false}
@@ -434,137 +410,162 @@ export default function BuildPage() {
                 <span className="c-dots" aria-hidden="true"><i /><i /><i /></span>
               </div>
             )}
-            <span className="c-anim-tag">{t("Watch, then do it")}</span>
           </div>
         )}
         {phase === "checking" && <span className="scan" aria-hidden="true" />}
-        {!showAnim && (
-          <span className="stage-status" role="status">
-            {t(status)}
+
+        <div className="c-cam-top">
+          <span className="c-segs" aria-hidden="true">
+            {Array.from({ length: total }, (_, i) => (
+              <span key={i} className={i < progress.step ? "done" : i === progress.step ? "now" : ""} />
+            ))}
           </span>
+          <div className="c-cam-bar">
+            <Link href="/" className="c-glass" aria-label={t("Home")}>
+              <svg {...icon} width="20" height="20">
+                <path d="M6 6l12 12M18 6L6 18" />
+              </svg>
+            </Link>
+            <span className="c-cam-label">{t("STEP {n} OF {total}", { n: progress.step + 1, total })}</span>
+            <button
+              type="button"
+              className={`c-glass${timber.listening ? " on" : ""}`}
+              aria-label={timber.listening ? t("Stop listening") : t("Talk to Timber")}
+              aria-pressed={timber.listening}
+              onClick={timber.listen}
+              disabled={phase === "checking" || phase === "correct" || timber.thinking}
+            >
+              <svg {...icon} width="20" height="20">
+                <rect x="9" y="3" width="6" height="11" rx="3" />
+                <path d="M5 11a7 7 0 0 0 14 0M12 18v3" />
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        {!showAnim && phase !== "correct" && (
+          <div className="c-cam-bottom">
+            {anim.image ? (
+              <button type="button" className="c-pill" onClick={() => setWatching(true)}>
+                <svg {...icon} width="16" height="16">
+                  <path d="M3 12a9 9 0 1 0 3-6.7L3 8" />
+                  <path d="M3 3v5h5" />
+                </svg>
+                {t("Watch again")}
+              </button>
+            ) : (
+              <span />
+            )}
+            {(phase === "work" || phase === "fix") && (target || phase === "fix") && (
+              <button
+                type="button"
+                className="c-pill"
+                onClick={() => {
+                  setPhase("work");
+                  show();
+                }}
+              >
+                <svg {...icon} width="16" height="16" strokeWidth={2.4}>
+                  <circle cx="12" cy="12" r="3" />
+                  <path d="M12 3v4M12 17v4M3 12h4M17 12h4" />
+                </svg>
+                {t("Show me")}
+              </button>
+            )}
+          </div>
         )}
-        {!showAnim && (phase === "work" || phase === "fix") && (target || phase === "fix") && (
-          <button
-            type="button"
-            className="showme"
-            onClick={() => {
-              setPhase("work");
-              show();
-            }}
-          >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" aria-hidden="true">
-              <circle cx="12" cy="12" r="3" />
-              <path d="M12 3v4M12 17v4M3 12h4M17 12h4" />
-            </svg>
-            {t("Show me")}
-          </button>
-        )}
-        {phase === "correct" && (
+      </div>
+
+      <section key={`${progress.step}-${phase}`} className={`c-sheet${sheetTone}`} aria-live="polite">
+        {phase === "correct" ? (
           <div
-            className="verdict ok"
+            className="c-ask"
             role="status"
             onClick={() => {
               clearTimeout(advanceTimer.current);
               setHeld(true);
             }}
           >
-            <span className="verdict-icon">
-              <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <path d="M5 12l5 5 9-10" />
-              </svg>
-            </span>
-            <div className="verdict-text">
-              <b>{t("Solid!")}</b>
-              <span className="hand">{check?.reply || t("Looks just right.")}</span>
-              {check?.seen && <small className="seen">{t("Seen:")} {check.seen}</small>}
-            </div>
-            <div className="verdict-stats">
-              <span className="sticker">+{earned.xp} xp</span>
-              <span className="sticker hi">{earned.firstTry ? t("first try") : t("fixed it")}</span>
+            <Timber pose="thumbs" size={76} move="hop" />
+            <div className="c-grow">
+              <h1 className="c-h1">{t("Well done!")}</h1>
+              <p className="c-sheet-text">{check?.reply || t("Looks just right.")}</p>
+              <p className="c-sheet-meta">
+                +{earned.xp} xp · {earned.firstTry ? t("first try") : t("fixed it")}
+              </p>
             </div>
           </div>
-        )}
-        {phase === "fix" && (
-          <div className="verdict bad" role="alert">
-            <span className="verdict-timber">
-              <Timber pose="oops" size={84} />
-            </span>
-            <div className="verdict-text">
-              <b>{t("Almost.")}</b>
-              <span>{check?.problem}</span>
-              {check?.fix && <span className="hand">{check.fix}</span>}
+        ) : phase === "fix" ? (
+          <div className="c-ask" role="alert">
+            <Timber pose="oops" size={76} />
+            <div className="c-grow">
+              <h1 className="c-h1">{t("Almost.")}</h1>
+              <p className="c-sheet-text">{check?.problem}</p>
+              {check?.fix && <p className="c-muted">{check.fix}</p>}
             </div>
             {piece && (
-              <figure className="verdict-piece">
+              <figure className="c-piece">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={piece} alt={t("Close-up of the {name}", { name: targetOf(step) })} />
                 <figcaption>{t("this one")}</figcaption>
               </figure>
             )}
           </div>
+        ) : (
+          <div className="c-ask">
+            <div className="c-grow">
+              <p className="kicker">
+                {kicker(step, manual.mode === "fix")}
+                {step.page > 0 && ` · p. ${step.page}`}
+              </p>
+              <h1 className="c-h1">{step.instruction}</h1>
+              {!showAnim && phase === "work" && status && <p className="c-muted">{t(status)}</p>}
+              {phase === "checking" && <p className="c-muted">{t("Timber is checking your build…")}</p>}
+            </div>
+            <Timber pose={phase === "checking" ? "think" : "point"} size={64} move="none" className="c-flip" />
+          </div>
         )}
-      </div>
 
-      <section key={progress.step} className="action-card compact">
-        <span className="tile">
-          <ActionIcon motion={step.motion} kind={kind} />
-        </span>
-        <div className="action-text">
-          <span className="kicker">
-            {kicker(step, manual.mode === "fix")}
-            {step.page > 0 && ` · p. ${step.page}`}
-          </span>
-          <h1 className="instruction">{step.instruction}</h1>
-        </div>
-      </section>
+        {(timber.listening || timber.thinking || timber.heard) && (
+          <p className="heard" role="status">
+            {timber.listening ? timber.live || t("Listening…") : timber.thinking ? t("Timber is thinking…") : `“${timber.heard}”`}
+            {timber.reply && !timber.thinking && !timber.listening && <b className="reply">Timber: {timber.reply}</b>}
+          </p>
+        )}
 
-      <button
-        type="button"
-        className={`cta${phase === "correct" && !held ? " auto" : ""}`}
-        onClick={showAnim ? () => setWatching(false) : phase === "correct" ? () => proceed(progress) : done}
-        disabled={phase === "checking" || timber.thinking}
-      >
-        {showAnim
-          ? t("Got it, open the camera")
-          : phase === "checking"
-          ? t("Checking…")
-          : phase === "correct"
-            ? progress.step >= total - 1
-              ? t("Finish")
-              : t("Next step →")
-            : phase === "fix"
-              ? t("Check again")
-              : kind === "verify"
-                ? t("Check my step")
-                : t("Done")}
-      </button>
-      <div className="row3">
-        <button type="button" className="secondary" onClick={() => setHelp(true)} disabled={locked}>
-          {t("I'm lost")}
-        </button>
-        <button type="button" className="secondary" onClick={advance} disabled={step.safety || locked}>
-          {step.safety ? t("Safety step") : t("Skip step")}
-        </button>
+        <div className="c-grow" />
         <button
           type="button"
-          className="round mic"
-          aria-label={timber.listening ? t("Stop listening") : t("Talk to Timber")}
-          aria-pressed={timber.listening}
-          onClick={timber.listen}
-          disabled={phase === "checking" || phase === "correct" || timber.thinking}
+          className={`cta c-btn${phase === "correct" && !held ? " auto" : ""}`}
+          onClick={showAnim ? () => setWatching(false) : phase === "correct" ? () => proceed(progress) : done}
+          disabled={phase === "checking" || timber.thinking}
         >
-          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" aria-hidden="true">
-            <rect x="9" y="3" width="6" height="11" rx="3" />
-            <path d="M5 11a7 7 0 0 0 14 0M12 18v3" />
-          </svg>
+          {!showAnim && phase !== "correct" && phase !== "checking" && kind === "verify" && <span className="c-shutter" aria-hidden="true" />}
+          {showAnim
+            ? t("Done, check it")
+            : phase === "checking"
+              ? t("Checking…")
+              : phase === "correct"
+                ? progress.step >= total - 1
+                  ? t("Finish")
+                  : t("Next step →")
+                : phase === "fix"
+                  ? t("Check again")
+                  : kind === "verify"
+                    ? t("Check my step")
+                    : t("Done")}
         </button>
-      </div>
-      {(timber.listening || timber.thinking || timber.heard) && (
-        <p className="heard" role="status">
-          {timber.listening ? timber.live || t("Listening…") : timber.thinking ? t("Timber is thinking…") : `“${timber.heard}”`}
-          {timber.reply && !timber.thinking && !timber.listening && <b className="reply">Timber: {timber.reply}</b>}
-        </p>
-      )}
+        {phase !== "correct" && (
+          <div className="c-sheet-links">
+            <button type="button" className="c-link" onClick={() => setHelp(true)} disabled={locked}>
+              {t("I'm lost")}
+            </button>
+            <button type="button" className="c-link" onClick={advance} disabled={step.safety || locked}>
+              {step.safety ? t("Safety step") : t("Skip step")}
+            </button>
+          </div>
+        )}
+      </section>
 
       {help && (
         <HelpSheet

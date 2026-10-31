@@ -73,48 +73,60 @@ export default function PartsPage() {
 
   if (!manual) {
     return (
-      <main className="screen paper">
-        <h1 className="title">{t("Add a manual first")}</h1>
-        <Link className="primary" href="/#ask">
+      <main className="screen c">
+        <h1 className="c-h1">{t("Add a manual first")}</h1>
+        <Link className="c-btn" href="/#ask">
           {t("Add a manual")}
         </Link>
       </main>
     );
   }
 
+  // With no color picked, outline every part found.
+  const outlined = selected ? highlighted : Object.values(results).flatMap((r) => (Array.isArray(r) ? r : []));
+  const camera = (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M4 8h3l2-3h6l2 3h3v11H4z" />
+      <circle cx="12" cy="13" r="3.5" />
+    </svg>
+  );
+
   return (
-    <main className="screen paper">
-      <header className="top">
-        <Link href="/" className="round" aria-label={t("Home")}>
-          ←
+    <main className="screen c">
+      <header className="c-top">
+        <Link href="/manual" className="c-back" aria-label={t("Back")}>
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M15 6l-6 6 6 6" />
+          </svg>
         </Link>
-        <span className="chip" role="status">
-          {shot ? t("{n}/{total} colors checked", { n: checked, total: needed.length }) : t("Parts check")}
+        <span className="c-muted" role="status" style={{ fontSize: 13 }}>
+          {shot ? t("{n} of {total} colors complete", { n: needed.filter(([c, n]) => (results[c]?.length ?? 0) >= n && Array.isArray(results[c])).length, total: needed.length }) : t("Parts check")}
         </span>
       </header>
 
-      <h1 className="title">{t("Spread your parts on the table")}</h1>
+      <h1 className="c-h1" style={{ fontSize: 28, lineHeight: "34px" }}>
+        {t("Let's check the parts")}
+      </h1>
 
-      <div className="stage">
+      <div className="c-parts-photo">
         {shot ? (
           <>
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={shot.image} alt={t("Your parts")} className="media" />
-            <svg className="media overlay" viewBox={`0 0 ${shot.width} ${shot.height}`} aria-hidden="true">
-              {highlighted.map((m) => (
-                <path key={m.id} d={m.path} transform={maskTransform(m)} className="mask" vectorEffect="non-scaling-stroke" />
+            <img src={shot.image} alt={t("Your parts")} />
+            <svg viewBox={`0 0 ${shot.width} ${shot.height}`} preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+              {outlined.map((m, i) => (
+                <path key={i} d={m.path} transform={maskTransform(m)} className="mask" vectorEffect="non-scaling-stroke" />
               ))}
             </svg>
           </>
         ) : (
-          <p className="hint">{t("Take one photo from above with every part visible.")}</p>
+          <label className="c-parts-empty">
+            {camera}
+            {t("Take one photo from above with every part visible.")}
+            <input type="file" accept="image/*" capture="environment" onChange={(e) => onPhoto(e.target.files?.[0])} />
+          </label>
         )}
       </div>
-
-      <label className="primary upload">
-        {shot ? t("Retake photo") : t("Take photo")}
-        <input type="file" accept="image/*" capture="environment" onChange={(e) => onPhoto(e.target.files?.[0])} />
-      </label>
 
       {error && (
         <p className="error" role="alert">
@@ -124,39 +136,54 @@ export default function PartsPage() {
 
       {shot && (
         <>
-          {checked === needed.length && (
-            <p className={short.length ? "error" : "ok"} role="alert">
-              {short.length
-                ? t("Timber may be missing parts in {n} color(s). Check the bottom of the box.", { n: short.length })
-                : t("Looks like everything is here.")}
-            </p>
-          )}
-          <ul className="colors">
+          <ul className="c-colors">
             {needed.map(([color, count]) => {
               const r = results[color];
               const found = Array.isArray(r) ? r.length : null;
               return (
                 <li key={color}>
-                  <button
-                    type="button"
-                    aria-pressed={selected === color}
-                    onClick={() => setSelected(selected === color ? null : color)}
-                    disabled={!found}
-                  >
-                    <span>{color}</span>
-                    <span className="count">
-                      {r === undefined ? t("looking…") : r === "error" ? t("couldn't check") : t("{seen} seen · {n} needed", { seen: found, n: count })}
-                    </span>
+                  <button type="button" aria-pressed={selected === color} onClick={() => setSelected(selected === color ? null : color)} disabled={!found}>
+                    <span className="c-swatch" style={{ background: color.replace(/\s+/g, "") }} />
+                    <span className="c-grow">{color}</span>
+                    {r === undefined ? (
+                      <span className="c-muted">{t("looking…")}</span>
+                    ) : r === "error" ? (
+                      <span className="c-muted">{t("couldn't check")}</span>
+                    ) : found! >= count ? (
+                      <>
+                        <span className="c-muted">{t("{seen} of {n}", { seen: count, n: count })}</span>
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" role="img" aria-label={t("Complete")}>
+                          <path d="M5 12.5l4.5 4.5L19 7.5" />
+                        </svg>
+                      </>
+                    ) : (
+                      <span className="c-badge">{t("Missing {n}", { n: count - found! })}</span>
+                    )}
                   </button>
                 </li>
               );
             })}
           </ul>
-          <p className="tip">
-            {t("Counts are a guide, not exact: pieces that touch or hide under others can count as one.")}
+          <p className="c-muted" style={{ fontSize: 13 }}>
+            {short.length
+              ? t("Check the bottom of the box. If it doesn't turn up, you can carry on anyway.")
+              : checked === needed.length
+                ? t("Looks like everything is here.")
+                : t("Counts are a guide, not exact: pieces that touch or hide under others can count as one.")}
           </p>
         </>
       )}
+
+      <div className="c-grow" />
+      <div className="c-sticky">
+        <label className="c-side" aria-label={shot ? t("Retake photo") : t("Take photo")} style={{ flex: "none", width: 56, height: 56, borderRadius: 28 }}>
+          {camera}
+          <input type="file" accept="image/*" capture="environment" onChange={(e) => onPhoto(e.target.files?.[0])} />
+        </label>
+        <Link href="/build" className="c-btn">
+          {t("Start building")}
+        </Link>
+      </div>
     </main>
   );
 }
