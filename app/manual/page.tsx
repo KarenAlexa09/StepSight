@@ -9,7 +9,8 @@ import Timber from "../../components/Timber";
 import { useDictation } from "../../components/useDictation";
 import { useTimber } from "../../components/useTimber";
 import { prepareAnimations } from "../../lib/anim";
-import { fileToShot } from "../../lib/image";
+import { fileToShot, thumb } from "../../lib/image";
+import { addThing } from "../../lib/things";
 import { takeIntent, type Intent } from "../../lib/intent";
 import type { Manual, Mode, ReadEvent } from "../../lib/manual";
 import { clearManual, clearReplay, freshProgress, loadManual, saveManual, saveProgress } from "../../lib/progress";
@@ -133,6 +134,10 @@ export default function ManualPage() {
   }
 
   function search(u: Understood) {
+    // A product with a known model goes to "My things", so next time one tap skips the questions.
+    if (u.model.trim() && !/generic/i.test(u.model)) {
+      (intent.image ? thumb(intent.image, 240) : Promise.resolve(undefined)).then((photo) => addThing({ name: u.name.trim(), model: u.model.trim(), photo }));
+    }
     read({ query: queryOf(u) }, u.mode, u.name, u.needsModel && (!u.model.trim() || /generic/i.test(u.model)));
   }
 

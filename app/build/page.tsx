@@ -393,7 +393,8 @@ export default function BuildPage() {
           live={false}
           autoTarget={target}
           resetKey={progress.step}
-          demo={manual?.demo ? demoPhoto(manual.demo!, progress.step, demoAfter, progress.triedThisStep) : undefined}
+          // While "Almost." shows, keep the mistake photo; the fixed one only appears on the re-check.
+          demo={manual?.demo ? demoPhoto(manual.demo!, progress.step, demoAfter, progress.triedThisStep && phase !== "fix") : undefined}
           onStatus={setStatus}
         />
         {showAnim && (

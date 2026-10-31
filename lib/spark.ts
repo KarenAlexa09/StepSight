@@ -93,7 +93,7 @@ export async function understand(said: string, image?: string, history: Turn[] =
           "If they don't know the model, ask them to send a photo of the label or model number, and offer a generic guide as an option. " +
           "options are up to 4 short likely answers (for a missing model offer likely brands, not tasks). When ready, question is empty and options is empty. " +
           "query: a web search query in English for the best guide, built from the whole conversation: brand, model, product and task, e.g. 'Sony WH-1000XM4 headphones clean ear pads'; add 'generic' if model is 'generic'; max 100 characters. " +
-          `Write question and options in ${SPEAK[lang]}.` +
+          `Write name, question and options in ${SPEAK[lang]}; keep brand and model names exactly as they are; query stays in English.` +
           (talk ? `\nConversation so far:\n${talk}` : "") +
           (said ? `\nThe person just said: "${said}"` : ""),
       },

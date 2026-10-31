@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import type { Manual } from "./manual";
+import { getItem, setItem } from "./store";
 
 const MAX_AT_ONCE = 4;
 const MAX_STEPS = 10; // a 40-step PDF would cost 40 images
@@ -12,17 +13,37 @@ const listeners = new Set<() => void>();
 const notify = () => listeners.forEach((fn) => fn());
 const keyOf = (m: Manual, i: number) => `stepsight.anim.${m.title}.${i}.${m.steps[i].instruction.length}`;
 
-function stored(key: string) {
-  if (!cache.has(key)) {
-    try {
-      const saved = localStorage.getItem(key);
-      if (saved) cache.set(key, saved);
-    } catch {}
+const loads = new Map<string, Promise<string | undefined>>();
+
+// Strips live in IndexedDB so every finished project keeps its manual; read once into memory, then sync.
+function load(key: string) {
+  if (cache.has(key)) return Promise.resolve(cache.get(key));
+  if (!loads.has(key)) {
+    loads.set(
+      key,
+      getItem<string>(key).then((saved) => {
+        if (saved) {
+          cache.set(key, saved);
+          notify();
+        }
+        return saved;
+      }),
+    );
   }
+  return loads.get(key)!;
+}
+
+function stored(key: string) {
+  if (!cache.has(key)) load(key);
   return cache.get(key);
 }
 
-// Halves the 2.5 MP strip so a whole guide fits in localStorage.
+// One-time: strips used to sit in localStorage and could fill it up; they're redrawn on demand.
+try {
+  if (typeof localStorage !== "undefined") Object.keys(localStorage).forEach((k) => k.startsWith("stepsight.anim.") && localStorage.removeItem(k));
+} catch {}
+
+// Halves the 2.5 MP strip: plenty for a phone and 4x less to store.
 function shrink(dataUrl: string): Promise<string> {
   return new Promise((resolve) => {
     const img = new Image();
@@ -53,9 +74,7 @@ async function draw(m: Manual, i: number) {
     if (!res.ok) return;
     const image = await shrink(data.image);
     cache.set(key, image);
-    try {
-      localStorage.setItem(key, image);
-    } catch {} // storage full: keep it for this visit only
+    setItem(key, image);
   } catch {
   } finally {
     pending.delete(key);
@@ -67,11 +86,8 @@ async function draw(m: Manual, i: number) {
 export async function prepareAnimations(m: Manual) {
   if (m.demo) return; // demos ship their strips in /public/demo
   const keys = m.steps.slice(0, MAX_STEPS).map((_, i) => keyOf(m, i));
-  // Drop other plans' strips first, or storage fills up and progress stops saving.
-  try {
-    Object.keys(localStorage).forEach((k) => k.startsWith("stepsight.anim.") && !keys.includes(k) && localStorage.removeItem(k));
-  } catch {}
-  const todo = keys.map((_, i) => i).filter((i) => !stored(keys[i]) && !pending.has(keys[i]));
+  const have = await Promise.all(keys.map(load));
+  const todo = keys.map((_, i) => i).filter((i) => !have[i] && !pending.has(keys[i]));
   const next = async (): Promise<void> => {
     const i = todo.shift();
     if (i === undefined) return;

@@ -17,7 +17,8 @@ export type Progress = {
   lastAt?: number;
 };
 
-export type Build = { title: string; finishedAt: number; minutes: number; steps: number; stars: number; mistakes: number; mode?: "build" | "fix"; photo?: string };
+// manual: the steps, so a finished project can be reopened and built again (its strips and replay sit in IndexedDB).
+export type Build = { title: string; finishedAt: number; minutes: number; steps: number; stars: number; mistakes: number; mode?: "build" | "fix"; photo?: string; manual?: Manual };
 
 export const XP_STEP = 25;
 export const XP_DO = 10;

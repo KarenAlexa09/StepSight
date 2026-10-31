@@ -7,6 +7,7 @@ import Replay from "../../components/Replay";
 import Timber from "../../components/Timber";
 import { shareCard } from "../../lib/card";
 import { thumb } from "../../lib/image";
+import { setItem } from "../../lib/store";
 import { play } from "../../lib/sound";
 import type { Manual } from "../../lib/manual";
 import { level, loadBuilds, loadManual, formatMinutes, loadProgress, loadReplay, minutesOf, saveBuilds, type Progress } from "../../lib/progress";
@@ -29,7 +30,9 @@ export default function DonePage() {
     if (!m || !p.finishedAt) return;
     const builds = loadBuilds();
     if (builds.some((b) => b.finishedAt === p.finishedAt)) return;
-    const last = loadReplay().at(-1);
+    const replay = loadReplay();
+    setItem(`replay.${p.finishedAt}`, replay);
+    const last = replay.at(-1);
     (last ? thumb(last, 240) : Promise.resolve(undefined)).then((photo) =>
       saveBuilds([
         {
@@ -41,6 +44,7 @@ export default function DonePage() {
           mistakes: p.mistakes,
           mode: m.mode,
           photo,
+          manual: m,
         },
         ...builds,
       ]),
@@ -152,8 +156,8 @@ export default function DonePage() {
         {sharing ? t("Making your card…") : t("Share my replay")}
       </button>
       <div className="c-chips">
-        <Link href="/gallery" className="c-link">
-          {t("Gallery")}
+        <Link href="/projects" className="c-link">
+          {t("Projects")}
         </Link>
         <Link href="/" className="c-link">
           {t("Home")}
