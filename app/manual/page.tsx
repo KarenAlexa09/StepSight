@@ -135,7 +135,7 @@ export default function ManualPage() {
     read({ query: queryOf(u) }, u.mode, u.name, u.needsModel && (!u.model.trim() || /generic/i.test(u.model)));
   }
 
-  async function read(body: Record<string, string>, mode: Mode, name: string, generic = false) {
+  async function read(body: Record<string, string>, mode: Mode, name: string, generic = false, retried = false) {
     setError("");
     setTarget({ name, mode, generic });
     retry.current = () => read(body, mode, name, generic);
@@ -151,13 +151,14 @@ export default function ManualPage() {
       while (!cancelled.current && Date.now() - started < GIVE_UP_MS) {
         await new Promise((r) => setTimeout(r, POLL_MS));
         const poll = await fetch(`/api/manual?id=${id}`).catch(() => null);
-        if (!poll) {
+        if (!poll || poll.status >= 500) {
           if (++misses >= 3) throw new TypeError(t("Lost the connection"));
           continue;
         }
         misses = 0;
         const data = await poll.json();
         if (!poll.ok) throw new Error(data.error);
+        if (data.status === "failed" && !retried) return read(body, mode, name, generic, true);
         if (data.status === "failed") throw new Error(t("Timber couldn't find good instructions. Try another name or link."));
         if (data.status === "done") {
           const done: Manual = { ...data.manual, mode, pdf: body.url };
