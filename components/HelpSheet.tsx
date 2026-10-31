@@ -59,90 +59,97 @@ export default function HelpSheet({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const icon = { viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 2, strokeLinecap: "round", strokeLinejoin: "round", "aria-hidden": true } as const;
+
   return (
     <div className="help-wrap" role="dialog" aria-modal="true" aria-label={t("Help")}>
       <button type="button" className="help-dim" aria-label={t("Close help")} tabIndex={-1} onClick={onClose} />
-      <div ref={sheet} tabIndex={-1} className="help-sheet">
+      <div ref={sheet} tabIndex={-1} className="help-sheet c-help">
         <span className="grabber" aria-hidden="true" />
-        <div className="row-between">
-          <h2 className="title">{t("No worries. What helps?")}</h2>
-          <Timber pose="think" size={64} />
+        <div className="c-ask">
+          <Timber pose="think" size={60} move="none" />
+          <h2 className="c-h1" style={{ fontSize: 26, lineHeight: "32px" }}>
+            {t("No worries. What helps?")}
+          </h2>
         </div>
 
-        <button type="button" className="opt hi" onClick={onAgain}>
-          <span className="num">1</span>
-          <span className="opt-text">
-            <span className="ot">{t("Show me again")}</span>
-            <span className="os">{t("Watch the animation one more time.")}</span>
-          </span>
-          <span aria-hidden="true">▶</span>
-        </button>
-
-        <div className="opt col">
-          <button type="button" className="opt-inner" onClick={onSimple}>
-            <span className="num">2</span>
-            <span className="opt-text">
-              <span className="ot">{t("Say it simpler")}</span>
-              <span className="os">{t("Timber explains it with easy words.")}</span>
+        <div className="c-opts">
+          <button type="button" className="c-opt" onClick={onAgain}>
+            <span className="c-opt-icon hi">
+              <svg {...icon} width="20" height="20">
+                <path d="M3 12a9 9 0 1 0 3-6.7L3 8" />
+                <path d="M3 3v5h5" />
+              </svg>
+            </span>
+            <span className="c-grow">
+              <b>{t("Show me again")}</b>
+              <small>{t("Watch the animation one more time.")}</small>
             </span>
           </button>
-          {simple && <p className="hand simple">{simple}</p>}
-        </div>
 
-        {pageUrl && (
-          <a className="opt" href={pageUrl} target="_blank" rel="noreferrer">
-            <span className="num">3</span>
-            <span className="opt-text">
-              <span className="ot">{t("Show the manual page")}</span>
-              <span className="os">Opens page {step.page} of your manual.</span>
+          <button type="button" className="c-opt" onClick={onSimple}>
+            <span className="c-opt-icon">
+              <svg {...icon} width="20" height="20">
+                <path d="M4 6h16M4 12h10M4 18h7" />
+              </svg>
             </span>
-          </a>
-        )}
+            <span className="c-grow">
+              <b>{t("Say it simpler")}</b>
+              <small>{simple || t("Timber explains it with easy words.")}</small>
+            </span>
+          </button>
 
-        <div className="opt col">
-          <button type="button" className="opt-inner" onClick={() => setAsking((a) => !a)}>
-            <span className="num">{pageUrl ? 4 : 3}</span>
-            <span className="opt-text">
-              <span className="ot">{t("Ask Timber")}</span>
-              <span className="os">{t("Talk or type your question.")}</span>
+          {pageUrl && (
+            <a className="c-opt" href={pageUrl} target="_blank" rel="noreferrer">
+              <span className="c-opt-icon">
+                <svg {...icon} width="20" height="20">
+                  <path d="M6 3h9l4 4v14H6z" />
+                  <path d="M14 3v5h5" />
+                </svg>
+              </span>
+              <span className="c-grow">
+                <b>{t("Show the manual page")}</b>
+                <small>{t("Page {n} of the PDF", { n: step.page })}</small>
+              </span>
+            </a>
+          )}
+
+          <button type="button" className="c-opt" onClick={() => setAsking((a) => !a)} aria-expanded={asking}>
+            <span className="c-opt-icon">
+              <svg {...icon} width="20" height="20">
+                <rect x="9" y="3" width="6" height="12" rx="3" />
+                <path d="M5 11a7 7 0 0 0 14 0M12 18v3" />
+              </svg>
+            </span>
+            <span className="c-grow">
+              <b>{t("Ask Timber")}</b>
+              <small>{t("Talk or type your question.")}</small>
             </span>
           </button>
           {asking && <AskBar timber={timber} placeholder={t("Type your question")} />}
         </div>
 
-        <div className="switches">
-          <div className="seg" role="group" aria-label={t("Language")}>
-            {(["en", "es"] as const).map((l) => (
-              <button key={l} type="button" aria-pressed={settings.lang === l} onClick={() => setSettings({ lang: l })}>
-                {l === "en" ? "English" : "Español"}
-              </button>
-            ))}
-          </div>
+        <div className="c-toggles">
           {SWITCHES.map(([key, label]) => (
-            <button
-              key={key}
-              type="button"
-              role="switch"
-              aria-checked={settings[key]}
-              className="sw"
-              onClick={() => setSettings({ [key]: !settings[key] })}
-            >
-              <span>{t(label)}</span>
-              <span className={`tg${settings[key] ? " on" : ""}`} aria-hidden="true" />
+            <button key={key} type="button" aria-pressed={settings[key]} onClick={() => setSettings({ [key]: !settings[key] })}>
+              {t(label)}
             </button>
           ))}
+          <button type="button" aria-label={t("Language")} onClick={() => setSettings({ lang: settings.lang === "es" ? "en" : "es" })}>
+            {settings.lang === "es" ? "ES → EN" : "EN → ES"}
+          </button>
         </div>
 
-        <div className="help-foot">
-          <button type="button" className="link" onClick={onBack} disabled={!canBack}>
+        <div className="c-sheet-links">
+          <button type="button" className="c-link" onClick={onBack} disabled={!canBack}>
             {t("← Go back a step")}
           </button>
-          <button type="button" className="link" onClick={onSkip} disabled={step.safety}>
+          <button type="button" className="c-link" onClick={onSkip} disabled={step.safety}>
             {step.safety ? t("Safety step: can't skip") : t("Skip this step →")}
           </button>
         </div>
-        <button type="button" className="secondary" onClick={onClose}>
-          {t("Back to building")}
+        <button type="button" className="c-btn" onClick={onClose}>
+          {t("Back to the step")}
         </button>
       </div>
     </div>

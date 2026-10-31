@@ -24,11 +24,9 @@ export default function Replay({ frames }: { frames: string[] }) {
         // eslint-disable-next-line @next/next/no-img-element
         <img key={i} src={src} alt={i === index ? t("Step {n} of your build", { n: i + 1 }) : ""} className={i === index ? "on" : ""} />
       ))}
-      <span className="chip">
-        Build replay · step {index + 1}
-      </span>
-      <button type="button" className="round play" aria-label={playing ? t("Pause replay") : t("Play replay")} onClick={() => setPlaying((p) => !p)}>
-        {playing ? "❚❚" : "▶"}
+      <button type="button" className="c-pill replay-toggle" aria-label={playing ? t("Pause replay") : t("Play replay")} onClick={() => setPlaying((p) => !p)}>
+        <span aria-hidden="true">{playing ? "❚❚" : "▶"}</span>
+        {t("Your replay")}
       </button>
     </section>
   );

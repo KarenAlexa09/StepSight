@@ -17,7 +17,7 @@ export type Progress = {
   lastAt?: number;
 };
 
-export type Build = { title: string; finishedAt: number; minutes: number; steps: number; stars: number; mistakes: number };
+export type Build = { title: string; finishedAt: number; minutes: number; steps: number; stars: number; mistakes: number; mode?: "build" | "fix"; photo?: string };
 
 export const XP_STEP = 25;
 export const XP_DO = 10;

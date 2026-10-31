@@ -1,10 +1,10 @@
 "use client";
 
 import { useT } from "../../lib/i18n";
-import Link from "next/link";
 import { useRef, useState } from "react";
 import AskBar from "../../components/AskBar";
 import CameraStage, { type CameraHandle } from "../../components/CameraStage";
+import Timber from "../../components/Timber";
 import { useTimber } from "../../components/useTimber";
 import type { Intent } from "../../lib/spark";
 
@@ -25,37 +25,38 @@ export default function FindPage() {
   }
 
   return (
-    <main className="screen paper">
-      <header className="top">
-        <Link href="/" className="round" aria-label={t("Home")}>
-          ←
-        </Link>
-        <span className="chip">{t("Find anything")}</span>
-      </header>
-
-      <CameraStage ref={camera} live={live && !!target} autoTarget={target} onStatus={setStatus} />
-      <p className="status" role="status">
-        {t(status)}
-      </p>
-
-      <AskBar timber={timber} placeholder={t('"Where is the vacuum cleaner?"')} />
-
-      <div className="row">
-        <button
-          type="button"
-          className="secondary"
-          aria-pressed={live}
-          onClick={() => setLive((v) => !v)}
-          disabled={!target}
-        >
-          {live ? t("Stop live") : target ? t("Live") : t("Live (ask first)")}
-        </button>
-        <label className="secondary upload">
-          {t("Photo")}
-          <input type="file" accept="image/*" onChange={(e) => e.target.files?.[0] && camera.current?.loadPhoto(e.target.files[0])} />
-        </label>
+    <main className="screen c-step c-find">
+      <div className="c-cam">
+        <CameraStage ref={camera} live={live && !!target} autoTarget={target} onStatus={setStatus} />
+        <div className="c-cam-top">
+          <AskBar timber={timber} placeholder={t('"Where is the vacuum cleaner?"')} />
+        </div>
       </div>
-      {live && <p className="tip">{t("Hold the phone still for a second and Timber looks again.")}</p>}
+
+      <section className="c-sheet">
+        <div className="c-ask">
+          <Timber pose={target ? "point" : "think"} size={56} move="none" className="c-flip" />
+          <div className="c-grow" role="status">
+            <h1 className="c-h1" style={{ fontSize: 20, lineHeight: "26px" }}>
+              {timber.thinking ? t("Timber is thinking…") : target ? t("Looking for: {x}", { x: target }) : t("What are you looking for?")}
+            </h1>
+            <p className="c-muted" style={{ fontSize: 14 }}>
+              {timber.reply || t(status)}
+            </p>
+          </div>
+        </div>
+        <div className="c-chips" style={{ justifyContent: "flex-start" }}>
+          <button type="button" className="c-chip" aria-pressed={live} onClick={() => setLive((v) => !v)} disabled={!target}>
+            {live && <span className="c-live-dot" aria-hidden="true" />}
+            {live ? t("Live") : target ? t("Live") : t("Live (ask first)")}
+          </button>
+          <label className="c-chip">
+            {t("Photo")}
+            <input type="file" accept="image/*" onChange={(e) => e.target.files?.[0] && camera.current?.loadPhoto(e.target.files[0])} />
+          </label>
+        </div>
+        {live && <p className="c-muted" style={{ fontSize: 13 }}>{t("Hold the phone still for a second and Timber looks again.")}</p>}
+      </section>
     </main>
   );
 }
