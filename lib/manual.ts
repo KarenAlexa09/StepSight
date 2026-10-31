@@ -138,7 +138,13 @@ function headers() {
   return { Authorization: `Bearer ${process.env.MODEL_API_KEY}`, "Content-Type": "application/json" };
 }
 
-export async function startReading(source: Source, lang: Lang = "en"): Promise<string> {
+// What the reading screen shows while Spark works, sent to the browser as one JSON object per line.
+export type ReadEvent = { type: "search"; query: string } | { type: "open"; url: string } | { type: "done"; manual: Manual } | { type: "failed" };
+
+type Item = { type: string; phase?: string; action?: { type: string; query?: string; url?: string }; content?: { type: string; text: string }[] };
+
+// Streams instead of background polling: polling shows nothing until the end (about 30 s to 3 min).
+export async function readManual(source: Source, lang: Lang, emit: (event: ReadEvent) => void): Promise<void> {
   const content: unknown[] = [{ type: "input_text", text: prompt(source, lang) }];
   if (source.kind === "pdf") content.push({ type: "input_file", file_url: source.url });
 
@@ -146,43 +152,58 @@ export async function startReading(source: Source, lang: Lang = "en"): Promise<s
     method: "POST",
     headers: headers(),
     body: JSON.stringify({
-      // Wonder ignored file_url in background mode and made up a manual; Spark reads the link and is 2x faster.
+      // Wonder ignored file_url and made up a manual; Spark reads the link and is 2x faster.
       model: "muse-spark-1.3",
-      background: true,
+      stream: true,
       ...(source.kind === "search" && { tools: [{ type: "web_search" }] }),
       input: [{ type: "message", role: "user", content }],
       text: { format: { type: "json_schema", name: "manual", schema, strict: true } },
     }),
   });
-  const data = await res.json();
-  if (!res.ok || !data.id) throw new Error(`Spark ${res.status}: ${JSON.stringify(data)}`);
-  return data.id;
+  if (!res.ok || !res.body) throw new Error(`Spark ${res.status}: ${await res.text()}`);
+
+  let buffer = "";
+  for await (const chunk of res.body.pipeThrough(new TextDecoderStream())) {
+    buffer += chunk;
+    const lines = buffer.split("\n");
+    buffer = lines.pop() ?? "";
+    for (const line of lines) {
+      if (!line.startsWith("data:")) continue;
+      const data = line.slice(5).trim();
+      if (!data || data === "[DONE]") continue;
+      const event = JSON.parse(data);
+      const action: Item["action"] = event.item?.action;
+      if (event.type === "response.output_item.done" && event.item.type === "web_search_call" && action) {
+        if (action.type === "search" && action.query) emit({ type: "search", query: action.query });
+        if (action.type === "open_page" && action.url) emit({ type: "open", url: action.url });
+      }
+      if (event.type === "response.completed") {
+        const manual = parseManual(event.response.output ?? []);
+        return emit(manual ? { type: "done", manual } : { type: "failed" });
+      }
+      if (event.type === "response.failed" || event.type === "error") return emit({ type: "failed" });
+    }
+  }
+  emit({ type: "failed" });
 }
 
-export type Reading = { status: "reading" } | { status: "done"; manual: Manual } | { status: "failed" };
-
-export async function checkReading(id: string): Promise<Reading> {
-  const res = await fetch(`${API}/${id}`, { headers: headers() });
-  const data = await res.json();
-  if (!res.ok) throw new Error(`Spark ${res.status}: ${JSON.stringify(data)}`);
-  if (data.status === "queued" || data.status === "in_progress") return { status: "reading" };
-  if (data.status !== "completed") return { status: "failed" };
-
-  const text = (data.output ?? [])
-    .flatMap((item: { content?: { type: string; text: string }[] }) => item.content ?? [])
-    .filter((c: { type: string }) => c.type === "output_text")
-    .map((c: { text: string }) => c.text)
+export function parseManual(output: Item[]): Manual | null {
+  const text = output
+    .filter((item) => item.phase !== "commentary")
+    .flatMap((item) => item.content ?? [])
+    .filter((c) => c.type === "output_text")
+    .map((c) => c.text)
     .join("");
-  // With web search the model narrates before the JSON.
-  const json = text.slice(text.indexOf("{"), text.lastIndexOf("}") + 1);
+  // With web search the model narrates before the JSON and drops citation marks like 【123†L69-L72】 into strings.
+  const json = text.slice(text.indexOf("{"), text.lastIndexOf("}") + 1).replace(/\s*【[^】]*】/g, "");
   let manual: Manual;
   try {
     manual = JSON.parse(json);
   } catch {
-    return { status: "failed" };
+    return null;
   }
-  if (!manual.steps?.length) return { status: "failed" };
+  if (!manual.steps?.length) return null;
   // Sources restart numbering per sub-build; the app needs one running order.
   manual.steps = manual.steps.map((step, i) => ({ ...step, number: i + 1 }));
-  return { status: "done", manual };
+  return manual;
 }

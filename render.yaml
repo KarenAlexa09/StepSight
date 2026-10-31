@@ -1,0 +1,15 @@
+# Live-voice relay (scripts/voice-relay.mjs) on Render's free plan. Render → New → Blueprint → this repo.
+# The Next.js app stays on Vercel; this only holds the WebSocket that Vercel can't.
+services:
+  - type: web
+    name: stepsight-voice
+    runtime: node
+    plan: free
+    buildCommand: npm ci --omit=dev
+    startCommand: node scripts/voice-relay.mjs
+    healthCheckPath: /
+    envVars:
+      - key: MODEL_API_KEY
+        sync: false
+      - key: VOICE_ORIGINS
+        sync: false

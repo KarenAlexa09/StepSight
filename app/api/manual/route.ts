@@ -1,5 +1,8 @@
 import { limited } from "../../../lib/limit";
-import { checkReading, startReading, type Mode, type Source } from "../../../lib/manual";
+import { readManual, type Mode, type Source } from "../../../lib/manual";
+
+// A web search plus reading can take up to 3 minutes.
+export const maxDuration = 300;
 
 // shortcut: rate limit only, no auth; add auth before sharing the link publicly.
 export async function POST(req: Request) {
@@ -8,39 +11,34 @@ export async function POST(req: Request) {
   const { url, query, mode: rawMode, lang } = await req.json().catch(() => ({}));
   const mode: Mode = rawMode === "fix" ? "fix" : "build";
 
-  try {
-    let source: Source;
-
-    if (typeof url === "string") {
-      let parsed: URL | null = null;
-      try {
-        parsed = url.length <= 500 ? new URL(url) : null;
-      } catch {}
-      if (!parsed || parsed.protocol !== "https:") {
-        return Response.json({ error: "Paste a link to the manual's PDF (https://…)." }, { status: 400 });
-      }
-      source = { kind: "pdf", url: parsed.href };
-    } else if (typeof query === "string" && query.trim() && query.length <= 120) {
-      source = { kind: "search", query: query.trim(), mode };
-    } else {
-      return Response.json({ error: "Send a product name or a PDF link." }, { status: 400 });
+  let source: Source;
+  if (typeof url === "string") {
+    let parsed: URL | null = null;
+    try {
+      parsed = url.length <= 500 ? new URL(url) : null;
+    } catch {}
+    if (!parsed || parsed.protocol !== "https:") {
+      return Response.json({ error: "Paste a link to the manual's PDF (https://…)." }, { status: 400 });
     }
-
-    return Response.json({ id: await startReading(source, lang === "es" ? "es" : "en"), mode });
-  } catch (error) {
-    console.error(error);
-    return Response.json({ error: "Couldn't start. Try again." }, { status: 502 });
+    source = { kind: "pdf", url: parsed.href };
+  } else if (typeof query === "string" && query.trim() && query.length <= 120) {
+    source = { kind: "search", query: query.trim(), mode };
+  } else {
+    return Response.json({ error: "Send a product name or a PDF link." }, { status: 400 });
   }
-}
 
-export async function GET(req: Request) {
-  const id = new URL(req.url).searchParams.get("id") ?? "";
-  if (!/^resp_[A-Za-z0-9]+$/.test(id)) return Response.json({ error: "Unknown reading." }, { status: 400 });
-
-  try {
-    return Response.json(await checkReading(id));
-  } catch (error) {
-    console.error(error);
-    return Response.json({ error: "Couldn't check the manual. Try again." }, { status: 502 });
-  }
+  const encoder = new TextEncoder();
+  const stream = new ReadableStream({
+    async start(controller) {
+      const emit = (event: unknown) => controller.enqueue(encoder.encode(JSON.stringify(event) + "\n"));
+      try {
+        await readManual(source, lang === "es" ? "es" : "en", emit);
+      } catch (error) {
+        console.error(error);
+        emit({ type: "failed" });
+      }
+      controller.close();
+    },
+  });
+  return new Response(stream, { headers: { "Content-Type": "application/x-ndjson", "Cache-Control": "no-store" } });
 }
