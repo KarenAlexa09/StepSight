@@ -6,7 +6,25 @@ import { getSettings } from "../lib/settings";
 import type { Intent } from "../lib/spark";
 import { useDictation } from "./useDictation";
 
-const lines = new Map<string, string>();
+const lines = new Map<string, Promise<string | null>>();
+
+// Each line costs ~2 s of Fish TTS; cached so a repeated or preloaded line plays at once.
+function voice(text: string) {
+  if (!lines.has(text)) {
+    const url = fetch("/api/speak", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text }) })
+      .then(async (res) => (res.ok ? URL.createObjectURL(await res.blob()) : null))
+      .catch(() => null);
+    url.then((u) => u || lines.delete(text)); // don't keep failures
+    lines.set(text, url);
+  }
+  return lines.get(text)!;
+}
+
+// Loads the voice of every step one after another, so each step speaks the moment you reach it.
+export async function preloadVoice(texts: string[]) {
+  if (!getSettings().sound) return;
+  for (const text of texts) await voice(text);
+}
 
 // One shared player, started once inside a tap: iPhone Safari then lets it play
 // Timber's later replies, which arrive seconds after the tap and would otherwise be blocked.
@@ -36,18 +54,8 @@ export function useTimber(onIntent: (intent: Intent) => void, step?: StepContext
     const mine = ++turn.current;
     player?.pause();
     try {
-      let url = lines.get(text);
-      if (!url) {
-        const res = await fetch("/api/speak", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ text }),
-        });
-        if (!res.ok) return;
-        url = URL.createObjectURL(await res.blob());
-        lines.set(text, url);
-      }
-      if (mine !== turn.current || !getSettings().sound) return;
+      const url = await voice(text);
+      if (!url || mine !== turn.current || !getSettings().sound) return;
       player ??= new Audio();
       player.src = url;
       await player.play();

@@ -10,7 +10,7 @@ import CameraStage, { type CameraHandle } from "../../components/CameraStage";
 import HelpSheet from "../../components/HelpSheet";
 import SourceTag from "../../components/SourceTag";
 import Timber from "../../components/Timber";
-import { useTimber } from "../../components/useTimber";
+import { preloadVoice, useTimber } from "../../components/useTimber";
 import { prepareAnimations, useAnimation } from "../../lib/anim";
 import { cropBox, thumb, type Shot } from "../../lib/image";
 import type { Manual, Part, Step } from "../../lib/manual";
@@ -93,6 +93,7 @@ export default function BuildPage() {
     setManual(m);
     setProgress(p);
     prepareAnimations(m);
+    preloadVoice(m.steps.slice(p.step).map((s) => s.instruction));
     setTarget(targetOf(m.steps[p.step]));
     if (m.mode === "fix") setStatus("Point the camera at what you're fixing");
   }, [router]);

@@ -1,8 +1,9 @@
 // Draws the demo step animations once (needs `npm run dev` running) into public/demo/anim-<demo>-<n>.jpg.
-// Usage: node scripts/make-anims.mjs [http://localhost:3000]
+// Usage: node scripts/make-anims.mjs [http://localhost:3000] [lamp-4]   (the second argument redraws just that one)
 import { writeFile } from "node:fs/promises";
 
 const base = process.argv[2] || "http://localhost:3000";
+const only = process.argv[3];
 const DEMOS = {
   lamp: {
     title: "table lamp",
@@ -10,7 +11,8 @@ const DEMOS = {
       ["Unplug the lamp from the power strip.", "plug"],
       ["Lift the lampshade off the lamp.", "lampshade"],
       ["Unscrew the old bulb and take it out.", "light bulb"],
-      ["Screw in the new bulb and put the shade back on.", "light bulb"],
+      // The app says "screw in the new bulb and put the shade back on"; the drawing spells out the orientation, which the model gets wrong otherwise.
+      ["Hold the new bulb upright, round glass on top and metal screw base at the bottom, lower the base onto the lamp socket that points up, and turn it clockwise until snug. The lampshade is off.", "light bulb"],
     ],
   },
   tower: {
@@ -26,6 +28,7 @@ const DEMOS = {
 await Promise.all(
   Object.entries(DEMOS).flatMap(([demo, { title, steps }]) =>
     steps.map(async ([instruction, target], i) => {
+      if (only && only !== `${demo}-${i + 1}`) return;
       const t = performance.now();
       const res = await fetch(`${base}/api/animate`, {
         method: "POST",
