@@ -13,7 +13,7 @@ const icon = (children: ReactNode) => (
 
 const TABS = [
   { href: "/", label: "Home", icon: icon(<path d="M4 11l8-7 8 7v9H4z" />) },
-  { href: "/build", label: "Projects", icon: icon(<path d="M3 7h6l2 2h10v10H3z" />) },
+  { href: "/projects", label: "Projects", icon: icon(<path d="M3 7h6l2 2h10v10H3z" />) },
   {
     href: "/gallery",
     label: "Gallery",
@@ -38,7 +38,7 @@ const TABS = [
   },
 ];
 
-const SHOWN = ["/", "/gallery", "/find"];
+const SHOWN = ["/", "/projects", "/gallery", "/find"];
 
 export default function TabBar() {
   const t = useT();

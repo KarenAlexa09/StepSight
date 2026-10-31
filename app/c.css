@@ -1063,3 +1063,16 @@ html.slow .c-anim-frame img {
 .help-sheet .opt.hi .num {
   background: var(--highlighter);
 }
+
+.heard .reply {
+  display: block;
+  margin-top: 6px;
+  font-weight: 500;
+  font-style: normal;
+  color: var(--ink);
+}
+
+.heard {
+  font-size: 15px;
+  color: var(--pencil);
+}

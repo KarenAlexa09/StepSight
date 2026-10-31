@@ -558,9 +558,10 @@ export default function BuildPage() {
           </svg>
         </button>
       </div>
-      {(timber.thinking || timber.heard) && (
+      {(timber.listening || timber.thinking || timber.heard) && (
         <p className="heard" role="status">
-          {timber.thinking ? t("Timber is thinking…") : `“${timber.heard}”`}
+          {timber.listening ? timber.live || t("Listening…") : timber.thinking ? t("Timber is thinking…") : `“${timber.heard}”`}
+          {timber.reply && !timber.thinking && !timber.listening && <b className="reply">Timber: {timber.reply}</b>}
         </p>
       )}
 
