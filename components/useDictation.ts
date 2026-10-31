@@ -42,28 +42,32 @@ export function useDictation(onText: (text: string) => void | Promise<void>, onE
 
   async function toggle() {
     if (stopRef.current) return stopRef.current();
+    const url = relayUrl();
+    // iPhone Safari only lets audio run if it starts in the tap itself, before any await; later it stays muted.
+    const context = url ? new AudioContext({ sampleRate: RATE }) : null;
+    context?.resume();
     let stream: MediaStream;
     try {
       stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } });
     } catch {
+      context?.close();
       return onError(tr("Allow the microphone to talk to Timber"));
     }
-    const url = relayUrl();
-    if (url) {
+    if (url && context) {
       const ws = await connect(url).catch(() => null); // relay down: use the recorded clip instead
       if (ws) {
         try {
-          return await streamLive(stream, ws);
+          return await streamLive(stream, ws, context);
         } catch {
           ws.close();
         }
       }
+      context.close();
     }
     record(stream);
   }
 
-  async function streamLive(stream: MediaStream, ws: WebSocket) {
-    const context = new AudioContext({ sampleRate: RATE });
+  async function streamLive(stream: MediaStream, ws: WebSocket, context: AudioContext) {
     const module = URL.createObjectURL(new Blob([WORKLET], { type: "text/javascript" }));
     await context.audioWorklet.addModule(module);
     URL.revokeObjectURL(module);

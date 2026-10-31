@@ -326,4 +326,8 @@ export const ES: Record<string, string> = {
   "Timber is drawing this step…": "Timber está dibujando este paso…",
   "Watch, then do it": "Mira y luego hazlo",
   "Got it, open the camera": "Listo, abrir la cámara",
+  "IN PROGRESS": "EN CURSO",
+  "STEP {n} OF {total}": "PASO {n} DE {total}",
+  "FINISHED": "TERMINADOS",
+  "No projects yet. Tell Timber what you need and it shows up here.": "Aún no hay proyectos. Dile a Timber qué necesitas y aparecerá aquí.",
 };

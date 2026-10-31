@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { tr } from "../lib/i18n";
 import { getSettings } from "../lib/settings";
 import type { Intent } from "../lib/spark";
@@ -8,18 +8,33 @@ import { useDictation } from "./useDictation";
 
 const lines = new Map<string, string>();
 
+// One shared player, started once inside a tap: iPhone Safari then lets it play
+// Timber's later replies, which arrive seconds after the tap and would otherwise be blocked.
+const SILENT = "data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA=";
+let player: HTMLAudioElement | null = null;
+function unlock() {
+  if (player) return;
+  player = new Audio(SILENT);
+  player.play().catch(() => {});
+}
+
 export type StepContext = { instruction: string; parts: string[] };
 
 export function useTimber(onIntent: (intent: Intent) => void, step?: StepContext) {
-  const audio = useRef<HTMLAudioElement | null>(null);
   const turn = useRef(0);
   const [thinking, setThinking] = useState(false);
   const [heard, setHeard] = useState("");
+  const [reply, setReply] = useState("");
+
+  useEffect(() => {
+    document.addEventListener("pointerdown", unlock, { once: true });
+    return () => document.removeEventListener("pointerdown", unlock);
+  }, []);
 
   async function say(text: string) {
     if (!getSettings().sound || !text) return;
     const mine = ++turn.current;
-    audio.current?.pause();
+    player?.pause();
     try {
       let url = lines.get(text);
       if (!url) {
@@ -33,14 +48,16 @@ export function useTimber(onIntent: (intent: Intent) => void, step?: StepContext
         lines.set(text, url);
       }
       if (mine !== turn.current || !getSettings().sound) return;
-      audio.current = new Audio(url);
-      await audio.current.play();
+      player ??= new Audio();
+      player.src = url;
+      await player.play();
     } catch {}
   }
 
   async function ask(said: string) {
     if (!said.trim()) return;
     setHeard(said);
+    setReply("");
     setThinking(true);
     try {
       const res = await fetch("/api/ask", {
@@ -50,6 +67,7 @@ export function useTimber(onIntent: (intent: Intent) => void, step?: StepContext
       });
       const intent = await res.json();
       if (!res.ok) throw new Error(intent.error);
+      setReply(intent.reply ?? "");
       onIntent(intent);
     } catch (error) {
       setHeard(error instanceof Error && error.message ? tr(error.message) : tr("Timber didn't get that"));
@@ -60,5 +78,10 @@ export function useTimber(onIntent: (intent: Intent) => void, step?: StepContext
 
   const dictation = useDictation(ask, setHeard);
 
-  return { say, ask, listen: dictation.toggle, listening: dictation.listening, live: dictation.live, thinking: thinking || dictation.transcribing, heard };
+  function listen() {
+    unlock();
+    dictation.toggle();
+  }
+
+  return { say, ask, listen, listening: dictation.listening, live: dictation.live, thinking: thinking || dictation.transcribing, heard, reply };
 }
