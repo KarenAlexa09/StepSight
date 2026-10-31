@@ -1,11 +1,13 @@
 import { limited } from "../../../lib/limit";
+import { describeStrip } from "../../../lib/spark";
 
 // One image with 3 panels (≈15 s) instead of 3 images: the panels share the scene, so they read as one motion.
-function stripPrompt(title: string, instruction: string, target: string) {
+function stripPrompt(title: string, instruction: string, target: string, scene: string) {
   return (
     `A comic strip of 3 equal square panels side by side, left to right, showing a person's hands doing this step${title ? ` on a ${title}` : ""}: "${instruction}". ` +
     `${target ? `The key part is the ${target}. ` : ""}` +
-    "Panel 1: just before. Panel 2: the hands in the middle of the action. Panel 3: the step finished. " +
+    (scene ? `${scene} ` : "Panel 1: just before. Panel 2: the hands in the middle of the action. Panel 3: the step finished. If the step has two actions, show only the first, main one. ") +
+    "Every object must be the right way up and used the way it really works. " +
     "Minimal instructional line illustration, thin black lines on a pure white background, flat, no shading, " +
     "the same camera angle and the same objects in all three panels, no text, no numbers, no labels."
   );
@@ -20,12 +22,15 @@ export async function POST(req: Request) {
   if (!text(instruction, 300)) return Response.json({ error: "Send the step." }, { status: 400 });
 
   try {
+    const [t, i, g] = [text(title, 120), text(instruction, 300), text(target, 80)];
+    // ~2 s with Spark "minimal"; without it the drawing is still made, just more often upside down.
+    const scene = await describeStrip(t, i, g).catch(() => "");
     const res = await fetch("https://api.meta.ai/v1/images/generations", {
       method: "POST",
       headers: { Authorization: `Bearer ${process.env.MODEL_API_KEY}`, "Content-Type": "application/json" },
       body: JSON.stringify({
         model: "muse-image-1.0",
-        prompt: stripPrompt(text(title, 120), text(instruction, 300), text(target, 80)),
+        prompt: stripPrompt(t, i, g, scene.slice(0, 900)),
         size: "1536x512",
         output_format: "jpeg",
       }),

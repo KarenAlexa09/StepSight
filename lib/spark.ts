@@ -3,13 +3,16 @@ import type { Box } from "./sam";
 
 const MODEL = "muse-spark-1.3";
 
-async function ask<T>(content: unknown[], name: string, schema: object): Promise<T> {
+// "minimal" answers about 2x faster than "low" (2.3 s vs 4.4 s measured); keep "low" where judgment matters (photo checks).
+type Effort = "minimal" | "low";
+
+async function ask<T>(content: unknown[], name: string, schema: object, effort: Effort = "low"): Promise<T> {
   const res = await fetch("https://api.meta.ai/v1/responses", {
     method: "POST",
     headers: { Authorization: `Bearer ${process.env.MODEL_API_KEY}`, "Content-Type": "application/json" },
     body: JSON.stringify({
       model: MODEL,
-      reasoning: { effort: "low" },
+      reasoning: { effort },
       input: [{ type: "message", role: "user", content }],
       text: { format: { type: "json_schema", name, schema, strict: true } },
     }),
@@ -114,6 +117,7 @@ export async function understand(said: string, image?: string, history: Turn[] =
         query: { type: "string" },
       },
     },
+    "minimal", // scripts/smoke/flow.mjs passes the same 10 conversations as with "low"
   );
   // The model sometimes says ready without a model; don't trust it for product-specific tasks.
   if (data.ready && data.needsModel && !data.model.trim()) data.ready = false;
@@ -202,5 +206,25 @@ export async function interpret(said: string, step?: { instruction: string; part
         reply: { type: "string" },
       },
     },
+    "minimal",
   );
+}
+
+// The image model draws parts upside down (a bulb with its glass in the socket) unless told which way each thing points.
+export async function describeStrip(title: string, instruction: string, target: string): Promise<string> {
+  const { scene } = await ask<{ scene: string }>(
+    [
+      {
+        type: "input_text",
+        text:
+          `A how-to drawing of 3 panels will show someone's hands doing this step${title ? ` on a ${title}` : ""}: "${instruction}"${target ? ` (key part: ${target})` : ""}. ` +
+          "If the step has two actions, keep only the first, main one. In English, under 90 words, describe what panels 1 (just before), 2 (in the middle of the action) and 3 (done) show. " +
+          "For every object say exactly which way it points and what touches what, as it really works (for example: the bulb's round glass on top, its metal screw base at the bottom going into the socket that points up).",
+      },
+    ],
+    "scene",
+    { type: "object", additionalProperties: false, required: ["scene"], properties: { scene: { type: "string" } } },
+    "minimal",
+  );
+  return scene;
 }
