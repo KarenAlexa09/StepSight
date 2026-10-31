@@ -3,22 +3,21 @@
 import { useT } from "../../lib/i18n";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import SourceTag from "../../components/SourceTag";
 import Timber from "../../components/Timber";
 import { useDictation } from "../../components/useDictation";
 import { useTimber } from "../../components/useTimber";
+import { prepareAnimations } from "../../lib/anim";
 import { fileToShot } from "../../lib/image";
 import { takeIntent, type Intent } from "../../lib/intent";
-import type { Manual, Mode } from "../../lib/manual";
+import type { Manual, Mode, ReadEvent } from "../../lib/manual";
 import { clearManual, clearReplay, freshProgress, loadManual, saveManual, saveProgress } from "../../lib/progress";
 import { getSettings } from "../../lib/settings";
 import type { Turn, Understood } from "../../lib/spark";
 
-const POLL_MS = 3000;
-const GIVE_UP_MS = 8 * 60 * 1000;
-
 type Phase = "understanding" | "ask" | "confirm" | "unclear" | "reading" | "done";
+type Activity = { text: string; host?: string };
 
 const MAX_QUESTIONS = 4;
 
@@ -26,6 +25,15 @@ const isLink = (text: string) => /^https:\/\/\S+$/.test(text);
 const queryOf = (u: Understood) => (u.query.trim() || (u.mode === "fix" && u.issue ? `${u.name}: ${u.issue}` : u.name)).slice(0, 120);
 const post = (url: string, body: unknown) =>
   fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+const hostOf = (url: string) => {
+  try {
+    return new URL(url).hostname.replace(/^www\./, "");
+  } catch {
+    return "";
+  }
+};
+
+const svg = { viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 2, strokeLinecap: "round", strokeLinejoin: "round", "aria-hidden": true } as const;
 
 export default function ManualPage() {
   const t = useT();
@@ -36,7 +44,7 @@ export default function ManualPage() {
   const [target, setTarget] = useState<{ name: string; mode: Mode; generic?: boolean } | null>(null);
   const [manual, setManual] = useState<Manual | null>(null);
   const [error, setError] = useState("");
-  const [elapsed, setElapsed] = useState(0);
+  const [activity, setActivity] = useState<Activity[]>([]);
   const [renaming, setRenaming] = useState(false);
   const [chat, setChat] = useState<Turn[]>([]);
   const [options, setOptions] = useState<string[]>([]);
@@ -66,13 +74,6 @@ export default function ManualPage() {
 
   useEffect(() => {
     window.scrollTo(0, 0);
-  }, [phase]);
-
-  useEffect(() => {
-    if (phase !== "reading") return;
-    const since = Date.now();
-    const id = setInterval(() => setElapsed(Math.round((Date.now() - since) / 1000)), 1000);
-    return () => clearInterval(id);
   }, [phase]);
 
   function fail(e: unknown) {
@@ -140,37 +141,40 @@ export default function ManualPage() {
     setTarget({ name, mode, generic });
     retry.current = () => read(body, mode, name, generic);
     setPhase("reading");
-    setElapsed(0);
-    const started = Date.now();
-    let misses = 0;
+    setActivity([{ text: t("Got it: {name}", { name }) }]);
     try {
       const res = await post("/api/manual", { ...body, mode, lang: getSettings().lang });
-      const { id, error } = await res.json();
-      if (!res.ok) throw new Error(error);
-
-      while (!cancelled.current && Date.now() - started < GIVE_UP_MS) {
-        await new Promise((r) => setTimeout(r, POLL_MS));
-        const poll = await fetch(`/api/manual?id=${id}`).catch(() => null);
-        if (!poll || poll.status >= 500) {
-          if (++misses >= 3) throw new TypeError(t("Lost the connection"));
-          continue;
-        }
-        misses = 0;
-        const data = await poll.json();
-        if (!poll.ok) throw new Error(data.error);
-        if (data.status === "failed" && !retried) return read(body, mode, name, generic, true);
-        if (data.status === "failed") throw new Error(t("Timber couldn't find good instructions. Try another name or link."));
-        if (data.status === "done") {
-          const done: Manual = { ...data.manual, mode, pdf: body.url };
-          setManual(done);
-          setPhase("done");
-          saveManual(done);
-          saveProgress(freshProgress());
-          clearReplay();
-          return;
+      if (!res.ok || !res.body) throw new Error((await res.json().catch(() => ({}))).error);
+      let buffer = "";
+      let last: ReadEvent | null = null;
+      // getReader, not for-await: some Safari versions can't iterate a stream.
+      const reader = res.body.pipeThrough(new TextDecoderStream()).getReader();
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        if (cancelled.current) return void reader.cancel();
+        buffer += value;
+        const lines = buffer.split("\n");
+        buffer = lines.pop() ?? "";
+        for (const line of lines.filter(Boolean)) {
+          const event: ReadEvent = JSON.parse(line);
+          last = event;
+          if (event.type === "search") setActivity((a) => [...a, { text: t("Searched “{q}”", { q: event.query }) }]);
+          if (event.type === "open") setActivity((a) => [...a, { text: t("Reading"), host: hostOf(event.url) }]);
         }
       }
-      if (!cancelled.current) throw new Error(t("This is taking too long. Try again."));
+      if (last?.type === "done") {
+        const done: Manual = { ...last.manual, mode, pdf: body.url };
+        setManual(done);
+        setPhase("done");
+        saveManual(done);
+        saveProgress(freshProgress());
+        clearReplay();
+        prepareAnimations(done);
+        return;
+      }
+      if (!retried) return read(body, mode, name, generic, true);
+      throw new Error(t("Timber couldn't find good instructions. Try another name or link."));
     } catch (e) {
       if (!cancelled.current) fail(e);
     }
@@ -198,126 +202,152 @@ export default function ManualPage() {
     router.push("/");
   }
 
+  function onReply(event: FormEvent) {
+    event.preventDefault();
+    answer(reply);
+  }
+
   const busy = dictation.listening || dictation.transcribing;
   const shown: Understood = understood ?? { name: "", mode: "build", issue: "", clear: false, ready: false, question: "", options: [], model: "", needsModel: false, query: "" };
+  const asked = chat.filter((turn) => turn.role === "timber").length;
+  const question = [...chat].reverse().find((turn) => turn.role === "timber")?.text ?? "";
+  const lastYou = [...chat].reverse().find((turn) => turn.role === "you")?.text ?? "";
 
-  const head = (
-    <header className="top">
-      <Link href="/" className="round" aria-label={t("Home")}>
-        ←
-      </Link>
-      <span className="chip">{phase === "done" ? t("Plan ready") : t("New project")}</span>
-    </header>
+  const back = (
+    <Link href="/" className="c-back" aria-label={t("Home")}>
+      <svg {...svg} width="22" height="22">
+        <path d="M15 6l-6 6 6 6" />
+      </svg>
+    </Link>
   );
 
-  const voice = (
-    <button type="button" className="secondary" onClick={dictation.toggle} disabled={dictation.transcribing}>
-      {dictation.listening ? t("Stop") : dictation.transcribing ? t("Hearing you…") : t("Tell Timber")}
-    </button>
+  const photoChip = (
+    <label className="c-chip">
+      <svg {...svg} width="16" height="16">
+        <path d="M4 8h3l2-3h6l2 3h3v11H4z" />
+        <circle cx="12" cy="13" r="3.5" />
+      </svg>
+      {t("Send a photo")}
+      <input type="file" accept="image/*" capture="environment" disabled={thinking || busy} onChange={(e) => onPhoto(e.target.files?.[0])} />
+    </label>
+  );
+
+  const listening = (
+    <>
+      <p className={`c-live${dictation.live ? "" : " wait"}`} key={dictation.live.split(" ").length}>
+        {dictation.live || (dictation.transcribing ? t("Reading what you said…") : t("I’m listening"))}
+      </p>
+      {dictation.listening ? (
+        <span className="c-wave" aria-hidden="true">
+          <span /><span /><span /><span /><span /><span /><span />
+        </span>
+      ) : (
+        <span className="c-dots" aria-hidden="true"><i /><i /><i /></span>
+      )}
+    </>
   );
 
   return (
-    <main className="screen paper">
-      {head}
-
+    <main className="screen c">
       {phase === "understanding" && (
-        <div className="controls">
-          <div className="hero">
-            <h1 className="title big">{t("Taking a look…")}</h1>
-            <Timber pose="reading" size={96} />
+        <>
+          <header className="c-top">{back}</header>
+          <div className="c-stage" role="status">
+            <Timber pose="think" size={96} />
+            <p className="c-live wait">{t("Taking a look…")}</p>
+            <span className="c-dots" aria-hidden="true"><i /><i /><i /></span>
           </div>
-          <p className="reading" role="status">
-            {t("Timber is figuring out what you need.")} <span className="dots" aria-hidden="true"><i /><i /><i /></span>
-          </p>
-          <span className="busy-bar" aria-hidden="true" />
-        </div>
+        </>
       )}
 
       {phase === "ask" && (
-        <div className="controls">
-          <div className="hero">
-            <h1 className="title big">{t("Tell me a bit more")}</h1>
-            <Timber pose="think" size={96} />
-          </div>
+        <>
+          <header className="c-top">
+            {back}
+            <span className="c-dashes" aria-label={t("Question {n}", { n: asked })}>
+              {Array.from({ length: Math.max(asked, 3) }, (_, i) => (
+                <span key={i} className={i < asked ? "on" : ""} />
+              ))}
+            </span>
+            <span style={{ width: 34 }} />
+          </header>
+          {lastYou && <p className="c-bubble">{t(lastYou)}</p>}
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          {intent.image && <img className="wiz-photo small" src={intent.image} alt={t("Your photo")} />}
-          <div className="chat" role="log" aria-live="polite">
-            {chat.map((turn, i) => (
-              <p key={i} className={`bubble ${turn.role}`}>
-                {turn.role === "you" ? t(turn.text) : turn.text}
-              </p>
-            ))}
-            {thinking && (
-              <p className="bubble timber" role="status" aria-label={t("Timber is thinking…")}>
-                <span className="dots" aria-hidden="true"><i /><i /><i /></span>
-              </p>
-            )}
+          {intent.image && !lastYou && <img className="wiz-photo small" src={intent.image} alt={t("Your photo")} />}
+          <div className="c-ask">
+            <Timber pose="think" size={64} />
+            <h1 className="c-h1" style={{ fontSize: 26, lineHeight: "32px" }} aria-live="polite">
+              {question}
+            </h1>
           </div>
-          {!thinking && options.length > 0 && (
-            <div className="chips">
-              {options.map((option) => (
-                <button key={option} type="button" className="ask-chip" disabled={busy} onClick={() => answer(option)}>
+
+          <div className="c-stage" role="status">
+            {busy ? listening : thinking ? <span className="c-dots" aria-label={t("Timber is thinking…")}><i /><i /><i /></span> : null}
+          </div>
+
+          {!thinking && !busy && (
+            <div className="c-chips">
+              {options.slice(0, 3).map((option) => (
+                <button key={option} type="button" className="c-chip" onClick={() => answer(option)}>
                   {option}
                 </button>
               ))}
+              {!understood?.model.trim() && photoChip}
             </div>
           )}
-          <form
-            className="ask-field"
-            onSubmit={(e) => {
-              e.preventDefault();
-              answer(reply);
-            }}
-          >
+          {understood?.name && !thinking && !busy && !options.some((o) => /generic|genéric/i.test(o)) && (
+            <button type="button" className="c-link" style={{ alignSelf: "center" }} onClick={() => search(understood)}>
+              {understood.needsModel && !understood.model.trim() ? t("Skip, use a generic guide") : t("Search with what I have")}
+            </button>
+          )}
+          {error && (
+            <p className="error" role="alert">
+              {error}
+            </p>
+          )}
+
+          <form className="c-bar" onSubmit={onReply}>
             <input
               type="text"
               value={reply}
               onChange={(e) => setReply(e.target.value)}
-              placeholder={dictation.listening ? t("Listening…") : t("Type your answer")}
+              placeholder={dictation.listening ? t("Listening… it sends when you stop") : t("Type or tap the mic")}
               aria-label={t("Type your answer")}
               maxLength={300}
-              disabled={thinking || dictation.transcribing}
+              disabled={thinking || busy}
             />
-            <button
-              type="button"
-              className={`ask-send mic${dictation.listening ? " on" : ""}`}
-              aria-label={dictation.listening ? t("Stop listening") : t("Talk to Timber")}
-              onClick={dictation.toggle}
-              disabled={thinking || dictation.transcribing}
-            >
-              <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <rect x="9" y="3" width="6" height="12" rx="3" />
-                <path d="M5 11a7 7 0 0 0 14 0M12 18v3" />
-              </svg>
-            </button>
-            <button type="submit" className="ask-send" aria-label={t("Send")} disabled={!reply.trim() || thinking}>
-              <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <path d="M5 12h14M13 6l6 6-6 6" />
-              </svg>
-            </button>
+            {reply.trim() ? (
+              <button type="submit" className="c-icon" aria-label={t("Send")} disabled={thinking}>
+                <svg {...svg} width="20" height="20" strokeWidth={2.4}>
+                  <path d="M5 12h14M13 6l6 6-6 6" />
+                </svg>
+              </button>
+            ) : (
+              <button
+                type="button"
+                className="c-icon"
+                aria-label={dictation.listening ? t("Stop listening") : t("Talk to Timber")}
+                onClick={dictation.toggle}
+                disabled={thinking || dictation.transcribing}
+              >
+                {dictation.listening ? (
+                  <span className="c-stop" />
+                ) : (
+                  <svg {...svg} width="20" height="20">
+                    <rect x="9" y="3" width="6" height="12" rx="3" />
+                    <path d="M5 11a7 7 0 0 0 14 0M12 18v3" />
+                  </svg>
+                )}
+              </button>
+            )}
           </form>
-          {!understood?.model.trim() && (
-            <label className="secondary upload">
-              {t("Send a photo (label or product)")}
-              <input type="file" accept="image/*" capture="environment" disabled={thinking || busy} onChange={(e) => onPhoto(e.target.files?.[0])} />
-            </label>
-          )}
-          {dictation.transcribing && (
-            <p className="reading" role="status">
-              {t("Reading what you said…")} <span className="dots" aria-hidden="true"><i /><i /><i /></span>
-            </p>
-          )}
-          {understood?.name && !options.some((o) => /generic|genéric/i.test(o)) && (
-            <button type="button" className="secondary" disabled={thinking || busy} onClick={() => search(understood)}>
-              {understood.needsModel && !understood.model.trim() ? t("Skip, use a generic guide") : t("Search with what I have")}
-            </button>
-          )}
-        </div>
+        </>
       )}
 
       {phase === "confirm" && intent.image && (
-        <div className="controls">
-          <h1 className="title big">{t("Is this it?")}</h1>
+        <>
+          <header className="c-top">{back}</header>
+          <h1 className="c-h1">{t("Is this it?")}</h1>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img className="wiz-photo" src={intent.image} alt={t("Your photo")} />
           <div className="wiz-card">
@@ -334,121 +364,151 @@ export default function ManualPage() {
             ) : (
               <h2 className="folder-title">{shown.name}</h2>
             )}
-            <div className="seg" role="group" aria-label={t("Project type")}>
+            <div className="c-seg" role="group" aria-label={t("Project type")}>
               {(["build", "fix"] as Mode[]).map((m) => (
                 <button key={m} type="button" aria-pressed={shown.mode === m} onClick={() => setUnderstood({ ...shown, mode: m })}>
                   {m === "build" ? t("Build it") : t("Fix it")}
                 </button>
               ))}
             </div>
-            <button type="button" className="link" onClick={() => setRenaming(true)}>
+            <button type="button" className="c-link" onClick={() => setRenaming(true)}>
               {t("Not this? Change it")}
             </button>
           </div>
-          <button
-            type="button"
-            className="primary"
-            disabled={busy || !shown.name.trim()}
-            onClick={() => search(shown)}
-          >
+          <div className="c-grow" />
+          <button type="button" className="c-btn" disabled={busy || !shown.name.trim()} onClick={() => search(shown)}>
             {t("Yes, find the manual →")}
           </button>
-          {voice}
-        </div>
+        </>
       )}
 
       {phase === "unclear" && (
-        <div className="controls">
-          <div className="hero">
-            <h1 className="title big">{error ? t("That didn’t work") : t("I can’t tell what it is")}</h1>
-            <Timber pose="reading" size={96} />
+        <>
+          <header className="c-top">{back}</header>
+          <div className="c-ask">
+            <Timber pose="oops" size={72} />
+            <h1 className="c-h1">{error ? t("That didn’t work") : t("I can’t tell what it is")}</h1>
           </div>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           {intent.image && !error && <img className="wiz-photo blur" src={intent.image} alt={t("Your photo, hard to see")} />}
-          <p className="wiz-note" role="alert">
+          <p className="c-muted" role="alert">
             {error || t("Get a bit closer and add more light, or just tell me what it is.")}
           </p>
+          <div className="c-stage">{busy && listening}</div>
           {error && retry.current && (
-            <button type="button" className="primary" onClick={retry.current} disabled={busy}>
+            <button type="button" className="c-btn" onClick={retry.current} disabled={busy}>
               {t("Try again")}
             </button>
           )}
-          <label className={`${error && retry.current ? "secondary" : "primary"} upload`}>
-            {t("Retake the photo")}
-            <input type="file" accept="image/*" capture="environment" disabled={busy} onChange={(e) => onPhoto(e.target.files?.[0])} />
-          </label>
-          {voice}
-          <Link href="/#ask" className="secondary">
-            {t("Type it")}
-          </Link>
-        </div>
+          <div className="c-chips">
+            {photoChip}
+            <button type="button" className="c-chip" onClick={dictation.toggle} disabled={dictation.transcribing}>
+              {dictation.listening ? t("Stop") : t("Tell Timber")}
+            </button>
+            <Link href="/#ask" className="c-chip">
+              {t("Type it")}
+            </Link>
+          </div>
+        </>
       )}
 
       {phase === "reading" && target && (
-        <div className="controls">
-          <div className="hero">
-            <h1 className="title big">{t("Searching for your manual")}</h1>
-            <Timber pose="reading" size={96} />
-          </div>
-          <div className="wiz-card">
-            <span className="kicker">{t("I UNDERSTOOD")}</span>
-            <h2 className="folder-title">{target.name}</h2>
-            <span className="chip">{target.mode === "fix" ? t("FIX") : t("BUILD")}</span>
-            {target.generic && <span className="chip">{t("GENERIC GUIDE")}</span>}
-            <Link href="/#ask" className="link">
-              {t("Not this? Change it")}
+        <>
+          <header className="c-top">
+            <span className="c-muted" style={{ fontSize: 13 }}>
+              {target.name} · {target.mode === "fix" ? t("Fix") : t("Build")}
+              {target.generic && ` · ${t("generic guide")}`}
+            </span>
+            <Link href="/" className="c-link">
+              {t("Cancel")}
             </Link>
+          </header>
+          <div className="c-radar" aria-hidden="true">
+            <i />
+            <i />
+            <i />
+            <span className="c-book">
+              <b />
+              <b />
+              <em />
+            </span>
+            <Timber pose="reading" size={84} move="none" />
           </div>
-          <span className="busy-bar" aria-hidden="true" />
-          <p className="reading">
-            <span role="status">{t("Searching the web and reading it")}</span> <span className="dots" aria-hidden="true"><i /><i /><i /></span>
-            <span aria-hidden="true"> · {elapsed < 60 ? `${elapsed} s` : `${Math.floor(elapsed / 60)} min ${elapsed % 60} s`}</span>
-            <br />
-            <span className="tip">{t("This takes 1–3 minutes. Keep this screen open.")}</span>
+          <h1 className="c-h1 c-center" style={{ fontSize: 28 }}>
+            {intent.text && isLink(intent.text) ? t("Reading your manual") : t("Looking for your guide")}
+          </h1>
+          <ul className="c-log" role="status" aria-live="polite">
+            {activity.slice(-4).map((a, i) => (
+              <li key={activity.length - 4 + i}>
+                <svg className="c-check" {...svg} width="18" height="18" strokeWidth={2.4}>
+                  <path d="M5 12.5l4.5 4.5L19 7.5" />
+                </svg>
+                <svg className="c-spin" {...svg} width="18" height="18" strokeWidth={2.4}>
+                  <path d="M12 3a9 9 0 1 1-9 9" />
+                </svg>
+                <span>
+                  {a.text} {a.host && <span className="c-host">{a.host}</span>}
+                </span>
+              </li>
+            ))}
+          </ul>
+          <div className="c-grow" />
+          <p className="c-muted c-center" style={{ fontSize: 13 }}>
+            {t("Usually under a minute. Keep this screen open.")}
           </p>
-          <Link href="/" className="secondary">
-            {t("Cancel")}
-          </Link>
-        </div>
+        </>
       )}
 
       {phase === "done" && manual && (
         <>
-          <p className="hand">{manual.mode === "fix" ? t("Got a plan to fix it!") : t("Manual read! Here's the plan:")}</p>
-          <h1 className="title">{manual.title}</h1>
+          <header className="c-top">
+            {back}
+            <button type="button" className="c-link" onClick={startOver}>
+              {t("Start another")}
+            </button>
+          </header>
+          <div className="c-ask">
+            <div className="c-grow">
+              <p className="kicker">{t("YOUR PLAN · {n} STEPS", { n: manual.steps.length })}</p>
+              <h1 className="c-h1" style={{ marginTop: 6 }}>
+                {manual.title}
+              </h1>
+            </div>
+            <Timber pose="thumbs" size={72} />
+          </div>
           <SourceTag manual={manual} />
-          <p className="tip">{t("{n} steps", { n: manual.steps.length })}</p>
-          <ol className="steps">
-            {manual.steps.map((step) => (
-              <li key={step.number}>
-                <div className="step-head">
-                  <span className="step-num">{step.number}</span>
-                  <span>{step.instruction}</span>
-                  {step.page > 0 && <span className="step-page">p. {step.page}</span>}
-                </div>
-                {step.parts.length > 0 && (
-                  <div className="parts">
-                    {step.parts.map((p, i) => (
-                      <span key={i} className="part">
-                        {p.quantity}× {p.color} {p.name}
-                      </span>
-                    ))}
-                  </div>
-                )}
+          {manual.prep && manual.prep.length > 0 && (
+            <p className="c-muted">
+              <b style={{ color: "var(--ink)" }}>{t("Before you start:")}</b> {manual.prep.join(" · ")}
+            </p>
+          )}
+          <ol className="c-steps">
+            {manual.steps.map((step, i) => (
+              <li key={step.number} style={{ animationDelay: `${i * 120}ms` }}>
+                <span className={`c-num${step.safety ? " hi" : ""}`}>{step.number}</span>
+                <span className="c-grow">
+                  {step.instruction}
+                  {step.parts.length > 0 && (
+                    <span className="c-muted" style={{ display: "block", fontSize: 13 }}>
+                      {step.parts.map((p) => `${p.quantity}× ${p.color} ${p.name}`).join(" · ")}
+                    </span>
+                  )}
+                </span>
+                {step.page > 0 && <span className="c-muted" style={{ fontSize: 12 }}>p. {step.page}</span>}
               </li>
             ))}
           </ol>
-          <div className="row sticky">
-            <button type="button" className="secondary" onClick={startOver}>
-              {t("New")}
-            </button>
+          <div className="c-sticky">
             {manual.mode !== "fix" && (
-              <Link className="secondary" href="/parts">
+              <Link className="c-btn ghost" href="/parts">
                 {t("Check parts")}
               </Link>
             )}
-            <Link className="primary" href="/build">
+            <Link className="c-btn" href="/build">
               {t("Start")}
+              <svg {...svg} width="20" height="20" strokeWidth={2.4}>
+                <path d="M5 12h14M13 6l6 6-6 6" />
+              </svg>
             </Link>
           </div>
         </>

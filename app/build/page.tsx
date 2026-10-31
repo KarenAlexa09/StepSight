@@ -11,6 +11,7 @@ import HelpSheet from "../../components/HelpSheet";
 import SourceTag from "../../components/SourceTag";
 import Timber from "../../components/Timber";
 import { useTimber } from "../../components/useTimber";
+import { prepareAnimations, useAnimation } from "../../lib/anim";
 import { cropBox, thumb, type Shot } from "../../lib/image";
 import type { Manual, Part, Step } from "../../lib/manual";
 import {
@@ -73,8 +74,10 @@ export default function BuildPage() {
   const [simple, setSimple] = useState("");
   const [empty, setEmpty] = useState(false);
   const [held, setHeld] = useState(false);
+  const [watching, setWatching] = useState(true);
 
   const step = manual && progress ? manual.steps[progress.step] : undefined;
+  const anim = useAnimation(manual, progress?.step ?? 0);
   const timber = useTimber(onIntent, step && { instruction: step.instruction, parts: step.parts.map(partLabel) });
 
   useEffect(() => () => clearTimeout(advanceTimer.current), []);
@@ -89,6 +92,7 @@ export default function BuildPage() {
     p.step = Math.min(p.step, m.steps.length - 1);
     setManual(m);
     setProgress(p);
+    prepareAnimations(m);
     setTarget(targetOf(m.steps[p.step]));
     if (m.mode === "fix") setStatus("Point the camera at what you're fixing");
   }, [router]);
@@ -116,6 +120,7 @@ export default function BuildPage() {
     setSimple("");
     setHelp(false);
     setHeld(false);
+    setWatching(true);
     setStatus(t("Step {i} of {n}", { i: i + 1, n: manual.steps.length }));
     if (speak) timber.say(s.instruction);
   }
@@ -260,6 +265,10 @@ export default function BuildPage() {
 
   function again() {
     setHelp(false);
+    if (anim.image) {
+      setPhase("work");
+      return setWatching(true);
+    }
     if (!camera.current?.replay()) show();
   }
 
@@ -322,6 +331,7 @@ export default function BuildPage() {
 
   const hazardous = Boolean(manual.hazard && manual.hazard !== "none");
   const locked = phase === "checking" || phase === "correct" || timber.thinking;
+  const showAnim = watching && phase === "work" && Boolean(anim.image || anim.drawing);
 
   if (manual.prep?.length && !progress.prepDone) {
     return (
@@ -409,11 +419,30 @@ export default function BuildPage() {
           demo={manual?.demo ? demoPhoto(manual.demo!, progress.step, demoAfter, progress.triedThisStep) : undefined}
           onStatus={setStatus}
         />
+        {showAnim && (
+          <div className="c-anim">
+            {anim.image ? (
+              <div className="c-anim-frame">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={anim.image} alt={t("Animation of this step: {step}", { step: step.instruction })} />
+              </div>
+            ) : (
+              <div className="c-anim-wait" role="status">
+                <Timber pose="reading" size={72} move="none" />
+                {t("Timber is drawing this step…")}
+                <span className="c-dots" aria-hidden="true"><i /><i /><i /></span>
+              </div>
+            )}
+            <span className="c-anim-tag">{t("Watch, then do it")}</span>
+          </div>
+        )}
         {phase === "checking" && <span className="scan" aria-hidden="true" />}
-        <span className="stage-status" role="status">
-          {t(status)}
-        </span>
-        {(phase === "work" || phase === "fix") && (target || phase === "fix") && (
+        {!showAnim && (
+          <span className="stage-status" role="status">
+            {t(status)}
+          </span>
+        )}
+        {!showAnim && (phase === "work" || phase === "fix") && (target || phase === "fix") && (
           <button
             type="button"
             className="showme"
@@ -491,10 +520,12 @@ export default function BuildPage() {
       <button
         type="button"
         className={`cta${phase === "correct" && !held ? " auto" : ""}`}
-        onClick={phase === "correct" ? () => proceed(progress) : done}
+        onClick={showAnim ? () => setWatching(false) : phase === "correct" ? () => proceed(progress) : done}
         disabled={phase === "checking" || timber.thinking}
       >
-        {phase === "checking"
+        {showAnim
+          ? t("Got it, open the camera")
+          : phase === "checking"
           ? t("Checking…")
           : phase === "correct"
             ? progress.step >= total - 1

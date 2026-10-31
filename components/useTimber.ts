@@ -60,5 +60,5 @@ export function useTimber(onIntent: (intent: Intent) => void, step?: StepContext
 
   const dictation = useDictation(ask, setHeard);
 
-  return { say, ask, listen: dictation.toggle, listening: dictation.listening, thinking: thinking || dictation.transcribing, heard };
+  return { say, ask, listen: dictation.toggle, listening: dictation.listening, live: dictation.live, thinking: thinking || dictation.transcribing, heard };
 }

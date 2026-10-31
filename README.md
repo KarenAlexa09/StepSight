@@ -20,7 +20,14 @@ Built for people who stare at a dense manual and give up: first-time builders, p
 ```bash
 npm install
 npm run dev
+npm run voice   # optional, second terminal: live transcription (words appear while you talk)
 ```
+
+**Live voice.** `npm run voice` starts a small relay on port 3001 that streams your mic to Muse Voice Transcribe realtime and keeps the API key off the browser. With `NEXT_PUBLIC_VOICE_URL=auto` the app finds it on the same host; it sends by itself about a second after you stop talking. Without the relay the mic falls back to record-then-transcribe. Vercel can't hold WebSockets, so in production run the relay on any Node host (Render, Fly, Railway), set `VOICE_ORIGINS` to your app's URL and `NEXT_PUBLIC_VOICE_URL` to the relay's `wss://` address.
+
+**Step animations.** When the plan is ready, Muse Image draws every step as a 3-panel strip (all steps in parallel, about 15–25 s total). Before each step the strip loops over the camera as white lines; **Got it, open the camera** hides it and you check the step as usual. The demos ship their strips in `public/demo/anim-*.jpg` (`node scripts/make-anims.mjs` redraws them with the dev server running).
+
+**Searching.** The manual search streams: the screen shows each web search and page Timber opens while it works.
 
 The flow:
 

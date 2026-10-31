@@ -65,16 +65,12 @@ async function understand(body) {
 }
 
 async function manual(query, mode, lang) {
-  const start = await fetch(`${base}/api/manual`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ query, mode, lang }) });
-  const { id, error } = await start.json();
-  if (!id) throw new Error(`manual start: ${error}`);
-  for (let i = 0; i < 90; i++) {
-    await new Promise((r) => setTimeout(r, 4000));
-    const data = await (await fetch(`${base}/api/manual?id=${id}`)).json();
-    if (data.status === "done") return data.manual;
-    if (data.status === "failed") throw new Error("manual failed");
-  }
-  throw new Error("manual timed out");
+  const res = await fetch(`${base}/api/manual`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ query, mode, lang }) });
+  if (!res.ok) throw new Error(`manual start: ${(await res.json()).error}`);
+  const lines = (await res.text()).trim().split("\n").map((line) => JSON.parse(line));
+  const last = lines.at(-1);
+  if (last?.type !== "done") throw new Error("manual failed");
+  return last.manual;
 }
 
 async function run(c) {
