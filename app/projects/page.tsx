@@ -5,10 +5,9 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import Timber from "../../components/Timber";
 import type { Manual } from "../../lib/manual";
-import { formatMinutes, loadBuilds, loadManual, loadProgress, type Build, type Progress } from "../../lib/progress";
+import { formatMinutes, level, loadBuilds, loadManual, loadProgress, type Build, type Progress } from "../../lib/progress";
 
-// The Projects tab: the project you're on (if any) plus everything finished. Before, the tab
-// opened /build, which dropped you on the last step of a finished project.
+// One place for everything: the project you're on, then every finished one with its photo (this used to be two tabs).
 export default function ProjectsPage() {
   const t = useT();
   const [manual, setManual] = useState<Manual | null>(null);
@@ -22,17 +21,29 @@ export default function ProjectsPage() {
   }, []);
 
   const steps = manual?.steps.length ?? 0;
-  const finished = Boolean(progress?.finishedAt);
+  const inProgress = manual && !progress?.finishedAt;
   const current = Math.min((progress?.step ?? 0) + 1, steps);
+  const xp = progress?.xp ?? 0;
 
   return (
     <main className="screen c">
       <header className="c-top">
-        <h1 className="c-h1">{t("Projects")}</h1>
-        <Timber pose="reading" size={64} move="none" />
+        <span className="c-muted" style={{ fontSize: 13 }}>
+          {t("{n} projects · {xp} XP", { n: builds.length, xp })}
+        </span>
+        <span className="chip hi">{t(level(xp).name)}</span>
       </header>
+      <div className="c-ask" style={{ justifyContent: "space-between" }}>
+        <div>
+          <h1 className="c-h1" style={{ fontSize: 34, lineHeight: "40px" }}>
+            {t("Projects")}
+          </h1>
+          <p className="c-muted">{t("Everything you built and fixed.")}</p>
+        </div>
+        <Timber pose="thumbs" size={64} move="none" />
+      </div>
 
-      {manual && !finished && (
+      {inProgress && (
         <>
           <p className="kicker">{t("IN PROGRESS")}</p>
           <Link href="/build" className="c-resume">
@@ -52,34 +63,28 @@ export default function ProjectsPage() {
         </>
       )}
 
-      {builds.length > 0 && (
-        <>
-          <p className="kicker">{t("FINISHED")}</p>
-          <ul className="c-steps">
-            {builds.map((b) => (
-              <li key={b.finishedAt}>
-                <span className="c-num hi">✓</span>
-                <span className="c-grow">
-                  {b.title}
-                  <span className="c-muted" style={{ display: "block", fontSize: 13 }}>
-                    {t("{n} steps · {time}", { n: b.steps, time: formatMinutes(b.minutes) })} · ★ {b.stars}
-                  </span>
-                </span>
-              </li>
-            ))}
-          </ul>
-        </>
-      )}
-
-      {(!manual || finished) && (
-        <>
-          {builds.length === 0 && <p className="c-muted">{t("No projects yet. Tell Timber what you need and it shows up here.")}</p>}
-          <div className="c-grow" />
-          <Link href="/#ask" className="c-btn">
-            {t("Start a project")}
+      {builds.length > 0 && <p className="kicker">{t("FINISHED")}</p>}
+      <div className="c-gallery">
+        {builds.map((b) => (
+          <Link key={b.finishedAt} href={`/projects/${b.finishedAt}`} className="c-card">
+            <span className="c-card-photo">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              {b.photo ? <img src={b.photo} alt="" /> : <Timber pose="celebrate" size={96} move="none" />}
+              <span className="c-tag">{b.mode === "fix" ? t("FIX") : t("BUILD")}</span>
+            </span>
+            <b>{b.title}</b>
+            <small>
+              {t("{n} steps · {time}", { n: b.steps, time: formatMinutes(b.minutes) })} · ★ {b.stars}
+            </small>
           </Link>
-        </>
-      )}
+        ))}
+        <Link href="/#ask" className="c-card-new">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+            <path d="M12 5v14M5 12h14" />
+          </svg>
+          {t(inProgress || builds.length ? "Your next project" : "Start a project")}
+        </Link>
+      </div>
     </main>
   );
 }

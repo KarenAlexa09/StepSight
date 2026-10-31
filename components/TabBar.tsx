@@ -15,14 +15,12 @@ const TABS = [
   { href: "/", label: "Home", icon: icon(<path d="M4 11l8-7 8 7v9H4z" />) },
   { href: "/projects", label: "Projects", icon: icon(<path d="M3 7h6l2 2h10v10H3z" />) },
   {
-    href: "/gallery",
-    label: "Gallery",
+    href: "/things",
+    label: "My things",
     icon: icon(
       <>
-        <rect x="4" y="4" width="7" height="7" rx="1.5" />
-        <rect x="13" y="4" width="7" height="7" rx="1.5" />
-        <rect x="4" y="13" width="7" height="7" rx="1.5" />
-        <rect x="13" y="13" width="7" height="7" rx="1.5" />
+        <path d="M4 8l8-4 8 4v8l-8 4-8-4z" />
+        <path d="M4 8l8 4 8-4M12 12v8" />
       </>,
     ),
   },
@@ -38,7 +36,7 @@ const TABS = [
   },
 ];
 
-const SHOWN = ["/", "/projects", "/gallery", "/find"];
+const SHOWN = ["/", "/projects", "/things", "/find"];
 
 export default function TabBar() {
   const t = useT();
