@@ -1,5 +1,5 @@
 import { limited } from "../../../lib/limit";
-import { describeStrip } from "../../../lib/spark";
+import { describeStrip, judgeStrip } from "../../../lib/spark";
 
 // One image with 3 panels (≈15 s) instead of 3 images: the panels share the scene, so they read as one motion.
 function stripPrompt(title: string, instruction: string, target: string, scene: string) {
@@ -25,19 +25,26 @@ export async function POST(req: Request) {
     const [t, i, g] = [text(title, 120), text(instruction, 300), text(target, 80)];
     // ~2 s with Spark "minimal"; without it the drawing is still made, just more often upside down.
     const scene = await describeStrip(t, i, g).catch(() => "");
-    const res = await fetch("https://api.meta.ai/v1/images/generations", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${process.env.MODEL_API_KEY}`, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model: "muse-image-1.0",
-        prompt: stripPrompt(t, i, g, scene.slice(0, 900)),
-        size: "1536x512",
-        output_format: "jpeg",
-      }),
-    });
-    const data = await res.json();
-    if (!res.ok || !data.data?.[0]?.b64_json) throw new Error(`Image ${res.status}: ${JSON.stringify(data).slice(0, 300)}`);
-    return Response.json({ image: `data:image/jpeg;base64,${data.data[0].b64_json}` });
+    // Two tries; if neither drawing passes the check, the step shows no drawing rather than a wrong one.
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const res = await fetch("https://api.meta.ai/v1/images/generations", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${process.env.MODEL_API_KEY}`, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: "muse-image-1.0",
+          prompt: stripPrompt(t, i, g, scene.slice(0, 900)),
+          size: "1536x512",
+          output_format: "jpeg",
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.data?.[0]?.b64_json) throw new Error(`Image ${res.status}: ${JSON.stringify(data).slice(0, 300)}`);
+      const image = `data:image/jpeg;base64,${data.data[0].b64_json}`;
+      const verdict = await judgeStrip(image, i).catch(() => ({ ok: true, problem: "" }));
+      if (verdict.ok) return Response.json({ image });
+      console.warn(`Strip rejected (${i}): ${verdict.problem}`);
+    }
+    return Response.json({ error: "Couldn't draw this step." }, { status: 502 });
   } catch (error) {
     console.error(error);
     return Response.json({ error: "Couldn't draw this step." }, { status: 502 });

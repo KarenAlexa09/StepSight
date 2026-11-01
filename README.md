@@ -12,6 +12,7 @@ A chatbot tells you how to do it. StepSight watches you do it.
 - **It shows where the steps come from.** Every guide carries an "Official manual", "Web guide" or "Your PDF" tag with the link.
 - **It explains in your language.** Pick Español and the steps, the checks and Timber's voice follow, even when the manual is in English.
 - **It works hands-free.** Say what you need; Timber answers out loud.
+- **Flow mode: just build.** A build map first (what it becomes, every part on your table numbered by SAM in the order you'll use it), then the next part lights up on the live camera and follows it as you move. Take your hands out and Timber checks on its own: SAM 3.1 watches the clip of your hands and sees whether the part landed on its base; Muse Spark only looks when that isn't clear.
 
 Built for people who stare at a dense manual and give up: first-time builders, people reading a manual in a second language, and anyone who would rather fix a thing than throw it away.
 
@@ -59,6 +60,8 @@ Quick checks that each Meta model works with our inputs. Node 22.9+ and no depen
 | `npm run smoke:compare -- samples/step.png samples/build.jpg` | Muse Spark 1.3 | Build photo vs manual step |
 | `npm run smoke:voice -- samples/command.wav` | Muse Voice Transcribe | Voice command to text |
 | `node scripts/smoke/verify-eval.mjs <folder> [url]` | Muse Spark 1.3 (via `/api/verify`) | Accuracy of the step check on your own good/bad photos (`step.json`, `good/`, `bad/`); needs the app running |
+| `node scripts/lab/run.mjs [--runs=3] [--cat=lego] [--manual]` | Muse Spark 1.3 (via `/api/understand`, `/api/manual`) | Understanding lab: 35 typed and photo conversations (LEGO, repair, cleaning, setup, identify, vague; English and Spanish), run several times each, with pass rates in `smoke-output/lab-report.md`; needs the app running. Test photos come from `scripts/lab/photos.mjs` |
+| `node --experimental-strip-types scripts/smoke/track.mjs` | — | Self-check of the on-phone part tracker (`lib/track.ts`) |
 | `npm run smoke:image` | Muse Image | Timber master sheet (`smoke-output/timber-master.png`) |
 | `npm run smoke:speak -- "Solid. Next one."` | Fish Audio (`s2.1-pro-free`) | Timber's voice (`smoke-output/timber-voice.mp3`) |
 

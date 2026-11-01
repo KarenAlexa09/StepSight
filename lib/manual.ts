@@ -117,7 +117,10 @@ function prompt(source: Source, lang: Lang) {
 }
 
 const MODEL_FIRST =
-  "Look for the manufacturer's page or manual for that exact brand and model first, then a guide written for that exact model; use a generic guide only if nothing specific exists, and then set specific to false. ";
+  "Use only steps the source really gives; never invent, merge or pad steps. If you cannot read the real steps (for example a picture-only PDF), return no steps and put the link to the official PDF for exactly this build in source url. " +
+  "If the instructions cover several separate builds, keep only the build named in the request. " +
+  "Look for the manufacturer's page or manual for that exact brand and model first, then a guide written for that exact model; use a generic guide only if nothing specific exists, and then set specific to false. " +
+  "If you read the manufacturer's own page or manual, base the steps on it and give it as the source (official true), even if other sites say the same. ";
 
 function base(source: Source) {
   if (source.kind === "pdf")
@@ -178,8 +181,17 @@ export async function readManual(source: Source, lang: Lang, emit: (event: ReadE
         if (action.type === "open_page" && action.url) emit({ type: "open", url: action.url });
       }
       if (event.type === "response.completed") {
-        const manual = parseManual(event.response.output ?? []);
-        return emit(manual ? { type: "done", manual } : { type: "failed" });
+        const output = event.response.output ?? [];
+        const manual = parseManual(output);
+        if (manual) return emit({ type: "done", manual });
+        // Web search can't see picture-only manuals (LEGO); reading the PDF itself can.
+        const pdf = source.kind === "search" ? parseJson(output)?.source?.url ?? "" : "";
+        if (!/^https:\/\/\S+\.pdf$/i.test(pdf)) return emit({ type: "failed" });
+        emit({ type: "open", url: pdf });
+        const name = new URL(pdf).hostname.replace(/^www\./, "");
+        return readManual({ kind: "pdf", url: pdf }, lang, (e) =>
+          emit(e.type === "done" ? { ...e, manual: { ...e.manual, source: { name, url: pdf, official: true, specific: true } } } : e),
+        );
       }
       if (event.type === "response.failed" || event.type === "error") return emit({ type: "failed" });
     }
@@ -187,7 +199,7 @@ export async function readManual(source: Source, lang: Lang, emit: (event: ReadE
   emit({ type: "failed" });
 }
 
-export function parseManual(output: Item[]): Manual | null {
+function parseJson(output: Item[]): Manual | null {
   const text = output
     .filter((item) => item.phase !== "commentary")
     .flatMap((item) => item.content ?? [])
@@ -196,13 +208,16 @@ export function parseManual(output: Item[]): Manual | null {
     .join("");
   // With web search the model narrates before the JSON and drops citation marks like 【123†L69-L72】 into strings.
   const json = text.slice(text.indexOf("{"), text.lastIndexOf("}") + 1).replace(/\s*【[^】]*】/g, "");
-  let manual: Manual;
   try {
-    manual = JSON.parse(json);
+    return JSON.parse(json);
   } catch {
     return null;
   }
-  if (!manual.steps?.length) return null;
+}
+
+export function parseManual(output: Item[]): Manual | null {
+  const manual = parseJson(output);
+  if (!manual?.steps?.length) return null;
   // Sources restart numbering per sub-build; the app needs one running order.
   manual.steps = manual.steps.map((step, i) => ({ ...step, number: i + 1 }));
   return manual;

@@ -95,7 +95,7 @@ body {
 
 .mask {
   fill: var(--highlighter);
-  fill-opacity: 0.55;
+  fill-opacity: 0.2;
   stroke: var(--ink);
   stroke-width: 2.5;
   stroke-linejoin: round;

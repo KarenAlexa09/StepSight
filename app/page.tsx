@@ -142,7 +142,7 @@ export default function Home() {
                 <path d="M4 8h3l2-3h6l2 3h3v11H4z" />
                 <circle cx="12" cy="13" r="3.5" />
               </svg>
-              <input type="file" accept="image/*" capture="environment" onChange={(e) => onPhoto(e.target.files?.[0])} />
+              <input type="file" accept="image/*" capture="environment" aria-label={t("Use a photo")} onChange={(e) => onPhoto(e.target.files?.[0])} />
             </label>
             <button type="button" className="c-mic" aria-label={t("Talk to Timber")} onClick={dictation.toggle}>
               <svg {...svg} width="30" height="30">
@@ -226,6 +226,16 @@ export default function Home() {
               }}
             >
               {t("Try the demo")}
+            </button>
+            <button
+              type="button"
+              className="c-chip"
+              onClick={() => {
+                startDemo("tower", true);
+                router.push("/build");
+              }}
+            >
+              {t("Try Flow")}
             </button>
           </div>
         </>

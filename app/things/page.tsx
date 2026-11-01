@@ -36,7 +36,11 @@ export default function ThingsPage() {
       ]);
       const data: Understood & { error?: string } = await res.json();
       if (!res.ok) throw new Error(data.error);
-      if (!data.name.trim() || /unknown/i.test(data.name)) throw new Error(t("Couldn't tell what it is. Get closer to the label and try again."));
+      if (!data.model.trim()) {
+        sendIntent({ image, thing: true });
+        router.push("/manual");
+        return;
+      }
       setThings(addThing({ name: data.name.trim(), model: data.model.trim(), photo }));
     } catch (e) {
       setError(e instanceof Error && e.message ? t(e.message) : t("Something went wrong"));
@@ -54,7 +58,7 @@ export default function ThingsPage() {
     <main className="screen c">
       <header className="c-top">
         <span className="c-muted" style={{ fontSize: 13 }}>
-          {t("{n} saved", { n: things.length })}
+          {things.length === 1 ? t("1 saved") : t("{n} saved", { n: things.length })}
         </span>
       </header>
       <div className="c-ask" style={{ justifyContent: "space-between" }}>
@@ -102,7 +106,7 @@ export default function ThingsPage() {
               </button>
               <b>{thing.name}</b>
               <span className="c-row-between" style={{ margin: 0 }}>
-                <small>{thing.model || t("No model yet")}</small>
+                <small>{!thing.model ? t("No model yet") : thing.name.toLowerCase().includes(thing.model.toLowerCase()) ? "" : thing.model}</small>
                 <button type="button" className="c-link" style={{ padding: "4px 0", fontSize: 12 }} onClick={() => setThings(removeThing(thing.id))}>
                   {t("Remove")}
                 </button>

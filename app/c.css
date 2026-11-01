@@ -844,7 +844,8 @@ body {
   height: 110%;
   margin: -5% 0 0 -5%;
   object-fit: cover;
-  filter: invert(1);
+  /* hue-rotate undoes the hue flip, so a red brick in a drawing stays red */
+  filter: invert(1) hue-rotate(180deg);
   mix-blend-mode: screen;
   opacity: 0.92;
   animation: c-frames 2.7s steps(3) infinite;
@@ -1103,6 +1104,142 @@ html.slow .c-anim-frame img {
   height: auto;
   min-height: 0;
   border-radius: 0;
+}
+
+.c-map-goal {
+  margin: 0;
+  flex: none;
+  width: 96px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.c-map-goal > img,
+.c-map-goal > .c-dots {
+  width: 96px;
+  height: 96px;
+  border-radius: 16px;
+  object-fit: cover;
+  background: var(--soft);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.c-map-goal figcaption {
+  font-size: 11px;
+  color: var(--pencil);
+  text-align: center;
+}
+
+.c-map-badge {
+  fill: var(--ink);
+  stroke: var(--highlighter);
+  stroke-width: 3;
+  vector-effect: non-scaling-stroke;
+}
+
+.c-map-num {
+  fill: var(--highlighter);
+  font-family: var(--font-mono), monospace;
+  font-weight: 700;
+  text-anchor: middle;
+  dominant-baseline: central;
+}
+
+.c-map-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.c-map-list li {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  font-size: 14px;
+  line-height: 20px;
+}
+
+.c-map-list b {
+  flex: none;
+  width: 24px;
+  height: 24px;
+  border-radius: 12px;
+  background: var(--ink);
+  color: var(--highlighter);
+  font: 700 12px var(--font-mono), monospace;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.c-map-list li.missing span {
+  color: var(--pencil);
+  text-decoration: line-through;
+}
+
+.stage .anchor {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.stage .anchor g {
+  transition: opacity 0.2s;
+}
+
+.mask.live {
+  fill-opacity: 0.3;
+  stroke-width: 3;
+}
+
+.c-flow-tag {
+  display: inline-block;
+  margin-right: 8px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--ink);
+  color: var(--highlighter);
+  font: 12px var(--font-mono), monospace;
+  vertical-align: 1px;
+}
+
+.c-next {
+  margin: 0;
+  padding: 10px 14px 10px 32px;
+  border-radius: 14px;
+  background: #f7f6f2;
+  color: var(--pencil);
+  font-size: 14px;
+  line-height: 20px;
+}
+
+.c-next li + li {
+  margin-top: 4px;
+}
+
+/* While a part is highlighted its own label and Close button sit at the bottom. */
+.c-cam:has(.stage.frozen) .c-cam-bottom {
+  display: none;
+}
+
+/* The sheet's rounded top overlaps the camera's last ~24px. */
+.c-cam .action-chip,
+.c-cam .back-live {
+  bottom: 36px;
+}
+
+/* Below the top bar, so the "Watch again" and "Show me" pills never cover it. */
+.c-cam .hint {
+  inset: 76px 12px auto;
 }
 
 .c-cam > .c-anim {

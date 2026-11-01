@@ -84,12 +84,12 @@ export async function understand(said: string, image?: string, history: Turn[] =
           "Use what they said, the conversation so far and the photo, if any. " +
           "clear: true only if you can tell which kind of product or object it is. " +
           "name: its most specific name from everything you know (brand and model if known, otherwise a plain description like 'bicycle chain'), max 8 words. " +
-          "mode: 'fix' for anything repair, replacement of a part, maintenance, cleaning or troubleshooting (a broken thing, a dead bulb, a clogged drain), otherwise 'build' (assemble, install, set up or use something new). " +
+          "mode: 'fix' for anything repair, replacement of a part, maintenance, cleaning or troubleshooting (a broken thing, a dead bulb, a clogged drain), otherwise 'build' (assemble, install, set up or use something new). Cleaning or dusting is always 'fix', even for a LEGO set or furniture. Putting a fallen piece back on, or rebuilding part of, something that has building instructions (a LEGO set, flat-pack furniture) is 'build', because the building instructions show where it goes. " +
           "issue: if mode is fix, the task or what is wrong in a few words; otherwise empty. " +
           "needsModel: true when the right steps depend on the exact model, which is true for almost every electronic or powered product and appliance (headphones, phone, coffee machine, vacuum, printer, router, camera, console) and for branded furniture; false for generic things (bicycle chain, dripping tap, light bulb, clogged drain). " +
           "model: the brand and model exactly as the person or the photo (label, logo, model number) gives them, or empty if unknown. A product line name that already implies the brand counts as a model: 'Kallax' is 'IKEA Kallax', 'AirPods Pro' is 'Apple AirPods Pro'; a size or variant the person adds (like '2x4') completes it.Set it to 'generic' only after the person explicitly chose a generic guide; saying they don't know the model is not enough, ask for a photo first. " +
-          "ready: true only when (needsModel is false or model is not empty) AND you know what the person wants done with it. Never guess a brand or model. " +
-          "If not ready, question is ONE short friendly question about the single most useful missing detail. Ask for brand and model first (a brand alone is not enough); only after that ask what exactly is wrong or what task they want. " +
+          "ready: true only when (needsModel is false or model is not empty) AND you know what the person wants done with it. Never guess a brand or model; you may name one from the photo only when the product is clearly recognizable (a distinctive design or a visible logo). If the product is a set or kit with several separate builds (for example a LEGO set with two plants, or a 3-in-1 set), and the person wants to build it, the model must also say which build; if a photo shows only one of them, that is the one; otherwise ready is false until you know which. For cleaning or other care, don't ask which build. " +
+          "If not ready, question is ONE short friendly question about the single most useful missing detail. Ask for brand and model first (a brand alone is not enough), then which build if it is a set with several; only after that ask what exactly is wrong or what task they want. " +
           "If they don't know the model, ask them to send a photo of the label or model number, and offer a generic guide as an option. " +
           "options are up to 4 short likely answers (for a missing model offer likely brands, not tasks). When ready, question is empty and options is empty. " +
           "query: a web search query in English for the best guide, built from the whole conversation: brand, model, product and task, e.g. 'Sony WH-1000XM4 headphones clean ear pads'; add 'generic' if model is 'generic'; max 100 characters. " +
@@ -117,7 +117,7 @@ export async function understand(said: string, image?: string, history: Turn[] =
         query: { type: "string" },
       },
     },
-    "minimal", // scripts/smoke/flow.mjs passes the same 10 conversations as with "low"
+    "minimal", // scripts/lab/run.mjs: 104/105 conversations pass with "minimal"
   );
   // The model sometimes says ready without a model; don't trust it for product-specific tasks.
   if (data.ready && data.needsModel && !data.model.trim()) data.ready = false;
@@ -211,6 +211,46 @@ export async function interpret(said: string, step?: { instruction: string; part
 }
 
 // The image model draws parts upside down (a bulb with its glass in the socket) unless told which way each thing points.
+// A wrong drawing teaches the wrong move, so each strip is checked before anyone sees it.
+export async function judgeStrip(image: string, instruction: string): Promise<{ ok: boolean; problem: string }> {
+  return ask<{ ok: boolean; problem: string }>(
+    [
+      {
+        type: "input_text",
+        text:
+          `This 3-panel drawing should show hands doing this step: "${instruction}" (if it has two actions, showing only the first is fine). ` +
+          "First name the part the hands act on in each panel and check it is the part the step names. ok is false if it shows a different action, the wrong part or place, objects used the wrong way or upside down, extra or missing hands or fingers, or anything that would mislead a beginner. " +
+          "problem: one short sentence on what is wrong, or empty.",
+      },
+      { type: "input_image", image_url: image },
+    ],
+    "strip_check",
+    { type: "object", additionalProperties: false, required: ["ok", "problem"], properties: { ok: { type: "boolean" }, problem: { type: "string" } } },
+    "low",
+  );
+}
+
+// Flow lets people build ahead: which of the next steps is the last one already done in the photo (0 = none, 1 = the current one).
+export async function furthestDone(image: string, steps: { instruction: string; check: string }[]): Promise<number> {
+  const { done } = await ask<{ done: number }>(
+    [
+      {
+        type: "input_text",
+        text:
+          "This photo shows someone's build. These are the next steps in order, each with what is visibly true once it is done:\n" +
+          steps.map((s, i) => `${i + 1}. ${s.instruction} (done when: ${s.check})`).join("\n") +
+          "\ndone = the number of the LAST step that is clearly done in the photo. A later step can hide earlier parts; if it is done, the earlier ones are too. " +
+          "0 if not even step 1 is clearly done. Judge only what you can see; when unsure, pick the lower number.",
+      },
+      { type: "input_image", image_url: image },
+    ],
+    "furthest",
+    { type: "object", additionalProperties: false, required: ["done"], properties: { done: { type: "integer" } } },
+    "low",
+  );
+  return Math.max(0, Math.min(steps.length, Math.round(done)));
+}
+
 export async function describeStrip(title: string, instruction: string, target: string): Promise<string> {
   const { scene } = await ask<{ scene: string }>(
     [
