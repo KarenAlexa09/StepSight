@@ -7,7 +7,7 @@ import Timber from "../../components/Timber";
 import { fileToShot, thumb } from "../../lib/image";
 import { sendIntent } from "../../lib/intent";
 import { getSettings } from "../../lib/settings";
-import type { Understood } from "../../lib/spark";
+import type { Identified, Understood } from "../../lib/spark";
 import { addThing, loadThings, removeThing, type Thing } from "../../lib/things";
 
 export default function ThingsPage() {
@@ -15,6 +15,7 @@ export default function ThingsPage() {
   const router = useRouter();
   const [things, setThings] = useState<Thing[]>([]);
   const [busy, setBusy] = useState(false);
+  const [searching, setSearching] = useState(false);
   const [error, setError] = useState("");
 
   useEffect(() => setThings(loadThings()), []);
@@ -25,7 +26,9 @@ export default function ThingsPage() {
     setError("");
     setBusy(true);
     try {
-      const { image } = await fileToShot(file);
+      const shot = await fileToShot(file).catch(() => null);
+      if (!shot) throw new Error(t("Couldn't open that photo. Try another one."));
+      const { image } = shot;
       const [res, photo] = await Promise.all([
         fetch("/api/understand", {
           method: "POST",
@@ -36,16 +39,32 @@ export default function ThingsPage() {
       ]);
       const data: Understood & { error?: string } = await res.json();
       if (!res.ok) throw new Error(data.error);
-      if (!data.model.trim()) {
-        sendIntent({ image, thing: true });
-        router.push("/manual");
-        return;
+      let name = data.name.trim();
+      let model = data.model.trim();
+      // Not on a label? Search the web before asking; plain unbranded things are saved as they are.
+      if (!model) {
+        setSearching(true);
+        const found = await fetch("/api/identify", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ image, lang: getSettings().lang }),
+        })
+          .then((res) => (res.ok ? (res.json() as Promise<Identified>) : null))
+          .catch(() => null);
+        if (found?.name.trim()) name = found.name.trim();
+        if (found?.sure && found.model.trim()) model = found.model.trim();
+        else if (!found?.generic || !name) {
+          sendIntent({ image, thing: true });
+          router.push("/manual");
+          return;
+        }
       }
-      setThings(addThing({ name: data.name.trim(), model: data.model.trim(), photo }));
+      setThings(addThing({ name, model, photo }));
     } catch (e) {
       setError(e instanceof Error && e.message ? t(e.message) : t("Something went wrong"));
     } finally {
       setBusy(false);
+      setSearching(false);
     }
   }
 
@@ -79,7 +98,7 @@ export default function ThingsPage() {
           </svg>
         </span>
         <span className="c-grow">
-          <b>{busy ? t("Reading the label…") : t("Add with a photo of the label")}</b>
+          <b>{searching ? t("Searching the web for the model…") : busy ? t("Reading the label…") : t("Add with a photo of the label")}</b>
           <small>{busy ? <span className="c-dots" aria-hidden="true"><i /><i /><i /></span> : t("Timber finds the brand and model.")}</small>
         </span>
         <input type="file" accept="image/*" capture="environment" disabled={busy} onChange={(e) => add(e.target.files?.[0])} />

@@ -49,6 +49,7 @@ export const cases = [
   // Identify (My things): the app sends this text with the photo.
   { cat: "identify", name: "label photo", thing: true, image: "headphones-label", answers: [], expect: { model: /xm4|1000xm4/i } },
   { cat: "identify", name: "plain lamp photo", thing: true, image: "public/demo/lamp0.jpg", answers: ["IKEA Lampan"], expect: { name: /lamp/i, model: /lampan/i } },
+  { cat: "identify", name: "rubber duck photo", thing: true, image: "rubber-duck", answers: [], expect: { name: /duck|pato/i } },
   { cat: "identify", name: "brick model photo", thing: true, image: "yellow-pot", answers: ["LEGO 10349 Happy Plants"], expect: { name: /plant|pot|lego|brick/i } },
 
   // From "My things": the app sends "I need help with my <model>", so Timber must ask what to do.

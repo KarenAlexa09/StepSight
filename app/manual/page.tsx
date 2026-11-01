@@ -106,9 +106,20 @@ export default function ManualPage() {
       if (!res.ok) throw new Error(data.error);
       setUnderstood(data);
       setThinking(false);
-      if (next.thing && data.model.trim()) return keep(data, next.image);
+      // "My things" only needs what it is: ask for brand and model once, never build or fix.
+      if (next.thing) {
+        if (!data.name.trim()) return setPhase("unclear");
+        if (data.model.trim() || talk.length) return keep(data, next.image);
+        const ask = t("What brand and model is it? A photo of the label works too.");
+        setChat([{ role: "timber", text: ask }]);
+        setOptions(data.needsModel ? data.options : []);
+        setReply("");
+        setPhase("ask");
+        timber.say(ask);
+        return;
+      }
       const asked = talk.filter((turn) => turn.role === "timber").length;
-      const question = (next.thing && data.model.trim() ? "" : data.question) || (!data.ready && data.needsModel && !data.model.trim() ? t("What brand and model is it? A photo of the label works too.") : "");
+      const question = data.question || (!data.ready && data.needsModel && !data.model.trim() ? t("What brand and model is it? A photo of the label works too.") : "");
       const asking = !data.ready && question && asked < MAX_QUESTIONS;
       if (!asking && (!data.clear || !data.name.trim())) return setPhase("unclear");
       if (asking) {
@@ -309,6 +320,11 @@ export default function ManualPage() {
               ))}
               {!understood?.model.trim() && photoChip}
             </div>
+          )}
+          {understood?.name && intent.thing && !thinking && !busy && (
+            <button type="button" className="c-link" style={{ alignSelf: "center" }} onClick={() => keep(understood, intent.image)}>
+              {t("Save it as {name}", { name: understood.name })}
+            </button>
           )}
           {understood?.name && !intent.thing && !thinking && !busy && !options.some((o) => /generic|genéric/i.test(o)) && (
             <button type="button" className="c-link" style={{ alignSelf: "center" }} onClick={() => search(understood)}>
