@@ -100,7 +100,7 @@ export const ES: Record<string, string> = {
   "Pace": "Ritmo",
   "Step by step": "Paso a paso",
   "Flow": "Flow",
-  "Just build. I light up the next part and check by myself when your hands leave.": "Solo arma. Ilumino la siguiente pieza y reviso yo solo cuando sacas las manos.",
+  "Just do it. I light up the part and check by myself when your hands leave.": "Solo hazlo. Ilumino la pieza y reviso yo solo cuando sacas las manos.",
   "One step at a time: I show it, you do it, I check it.": "Un paso a la vez: te lo muestro, lo haces y lo reviso.",
   "Hands out when it's on. I'll check by myself.": "Saca las manos cuando esté puesta. Reviso yo solo.",
   "Up next": "Lo que sigue",
