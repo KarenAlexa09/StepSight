@@ -1,6 +1,6 @@
 "use client";
 
-import { useT } from "../../lib/i18n";
+import { tr, useT } from "../../lib/i18n";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, type FormEvent } from "react";
@@ -25,7 +25,7 @@ const MAX_QUESTIONS = 4;
 const isLink = (text: string) => /^https:\/\/\S+$/.test(text);
 const queryOf = (u: Understood) => (u.query.trim() || (u.mode === "fix" && u.issue ? `${u.name}: ${u.issue}` : u.name)).slice(0, 120);
 // Search operators and quotes mean nothing to people: "site:sony.com \"how to clean\"" → "how to clean".
-const plain = (query: string) => query.replace(/(site|filetype|inurl):\S+/gi, "").replace(/["“”]/g, "").replace(/\s+/g, " ").trim();
+const plain = (query: string) => query.replace(/\b(site|filetype|inurl):\S+/gi, "").replace(/["“”]/g, "").replace(/\s+/g, " ").trim();
 const post = (url: string, body: unknown) =>
   fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
 const hostOf = (url: string) => {
@@ -83,10 +83,10 @@ export default function ManualPage() {
   function fail(e: unknown) {
     setError(
       e instanceof TypeError
-        ? t("Can't reach the server. Check your connection and try again.")
+        ? tr("Can't reach the server. Check your connection and try again.")
         : e instanceof Error && e.message
-          ? t(e.message)
-          : t("Something went wrong"),
+          ? tr(e.message)
+          : tr("Something went wrong"),
     );
     setPhase("unclear");
   }
@@ -106,18 +106,29 @@ export default function ManualPage() {
       if (!res.ok) throw new Error(data.error);
       setUnderstood(data);
       setThinking(false);
-      if (next.thing && data.model.trim()) return keep(data, next.image);
+      // "My things" only needs what it is: ask for brand and model once, never build or fix.
+      if (next.thing) {
+        if (!data.name.trim()) return setPhase("unclear");
+        if (data.model.trim() || talk.length) return keep(data, next.image);
+        const ask = tr("What brand and model is it? A photo of the label works too.");
+        await Promise.race([timber.say(ask), new Promise((r) => setTimeout(r, 2500))]);
+        setChat([{ role: "timber", text: ask }]);
+        setOptions(data.needsModel ? data.options : []);
+        setReply("");
+        setPhase("ask");
+        return;
+      }
       const asked = talk.filter((turn) => turn.role === "timber").length;
-      const question = (next.thing && data.model.trim() ? "" : data.question) || (!data.ready && data.needsModel && !data.model.trim() ? t("What brand and model is it? A photo of the label works too.") : "");
+      const question = data.question || (!data.ready && data.needsModel && !data.model.trim() ? tr("What brand and model is it? A photo of the label works too.") : "");
       const asking = !data.ready && question && asked < MAX_QUESTIONS;
       if (!asking && (!data.clear || !data.name.trim())) return setPhase("unclear");
       if (asking) {
+        await Promise.race([timber.say(question), new Promise((r) => setTimeout(r, 2500))]);
         const before = talk.length ? talk : said ? [{ role: "you" as const, text: said }] : [];
         setChat([...before, { role: "timber", text: question }]);
         setOptions(data.options);
         setReply("");
         setPhase("ask");
-        timber.say(question);
         return;
       }
       if (next.image && !said && !talk.length) return setPhase("confirm");
@@ -156,7 +167,7 @@ export default function ManualPage() {
     setTarget({ name, mode, generic });
     retry.current = () => read(body, mode, name, generic);
     setPhase("reading");
-    setActivity([{ text: t("Got it: {name}", { name }) }]);
+    setActivity([{ text: tr("Got it: {name}", { name }) }]);
     try {
       const res = await post("/api/manual", { ...body, mode, lang: getSettings().lang });
       if (!res.ok || !res.body) throw new Error((await res.json().catch(() => ({}))).error);
@@ -174,8 +185,8 @@ export default function ManualPage() {
         for (const line of lines.filter(Boolean)) {
           const event: ReadEvent = JSON.parse(line);
           last = event;
-          if (event.type === "search") setActivity((a) => [...a, { text: t("Searched “{q}”", { q: plain(event.query) }) }]);
-          if (event.type === "open") setActivity((a) => [...a, { text: t("Reading"), host: hostOf(event.url) }]);
+          if (event.type === "search") setActivity((a) => [...a, { text: tr("Searched “{q}”", { q: plain(event.query) }) }]);
+          if (event.type === "open") setActivity((a) => [...a, { text: tr("Reading"), host: hostOf(event.url) }]);
         }
       }
       if (last?.type === "done") {
@@ -189,7 +200,7 @@ export default function ManualPage() {
         return;
       }
       if (!retried) return read(body, mode, name, generic, true);
-      throw new Error(t("Timber couldn't find good instructions. Try another name or link."));
+      throw new Error(tr("Timber couldn't find good instructions. Try another name or link."));
     } catch (e) {
       if (!cancelled.current) fail(e);
     }
@@ -309,6 +320,11 @@ export default function ManualPage() {
               ))}
               {!understood?.model.trim() && photoChip}
             </div>
+          )}
+          {understood?.name && intent.thing && !thinking && !busy && (
+            <button type="button" className="c-link" style={{ alignSelf: "center" }} onClick={() => keep(understood, intent.image)}>
+              {t("Save it as {name}", { name: understood.name })}
+            </button>
           )}
           {understood?.name && !intent.thing && !thinking && !busy && !options.some((o) => /generic|genéric/i.test(o)) && (
             <button type="button" className="c-link" style={{ alignSelf: "center" }} onClick={() => search(understood)}>
@@ -492,6 +508,17 @@ export default function ManualPage() {
             <Timber pose="thumbs" size={72} />
           </div>
           <SourceTag manual={manual} />
+          <div className="c-seg" role="group" aria-label={t("Pace")}>
+            <button type="button" aria-pressed={!flow} onClick={() => setFlow(false)}>
+              {t("Step by step")}
+            </button>
+            <button type="button" aria-pressed={flow} onClick={() => setFlow(true)}>
+              {t("Flow")}
+            </button>
+          </div>
+          <p className="c-muted" style={{ fontSize: 14 }}>
+            {flow ? t("Just do it. I light up the part and check by myself when your hands leave.") : t("One step at a time: I show it, you do it, I check it.")}
+          </p>
           <ol className="c-steps">
             {manual.steps.map((step, i) => (
               <li key={step.number} style={{ animationDelay: `${i * 120}ms` }}>
@@ -508,28 +535,13 @@ export default function ManualPage() {
               </li>
             ))}
           </ol>
-          {manual.mode !== "fix" && (
-            <>
-              <div className="c-seg" role="group" aria-label={t("Pace")}>
-                <button type="button" aria-pressed={!flow} onClick={() => setFlow(false)}>
-                  {t("Step by step")}
-                </button>
-                <button type="button" aria-pressed={flow} onClick={() => setFlow(true)}>
-                  {t("Flow")}
-                </button>
-              </div>
-              <p className="c-muted" style={{ fontSize: 14 }}>
-                {flow ? t("Just build. I light up the next part and check by myself when your hands leave.") : t("One step at a time: I show it, you do it, I check it.")}
-              </p>
-            </>
-          )}
           <div className="c-sticky">
             {manual.mode !== "fix" && manual.steps.some((s) => s.parts.length > 0) && (
               <Link className="c-btn ghost" href="/parts">
                 {t("Check parts")}
               </Link>
             )}
-            <Link className="c-btn" href="/build" onClick={() => saveProgress({ ...loadProgress(), flow: flow && manual.mode !== "fix" })}>
+            <Link className="c-btn" href="/build" onClick={() => saveProgress({ ...loadProgress(), flow })}>
               {t("Start")}
               <svg {...svg} width="20" height="20" strokeWidth={2.4}>
                 <path d="M5 12h14M13 6l6 6-6 6" />

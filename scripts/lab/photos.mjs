@@ -10,6 +10,7 @@ const PHOTOS = {
     "A finished model built from yellow plastic toy bricks: a square yellow plant pot with a cute smiling face, two short legs, curved pipe arms, and dark green pointed leaves on top. Only this one model, on a white desk.",
   "washer-error": "Close-up of a front-loading washing machine's control panel; the small digital display clearly shows the error code E21. No brand logo visible.",
   "bike-chain": "Close-up of a bicycle's front gears where the chain has fallen off the chainring and hangs loose. A garage floor in the background.",
+  "rubber-duck": "A plain yellow rubber bath duck sitting on the edge of a white bathtub, no logos and no text.",
   "headphones-label":
     "Close-up of the inside of a black over-ear headphone headband, with a small printed label that clearly reads: SONY  Model: WH-1000XM4.",
 };

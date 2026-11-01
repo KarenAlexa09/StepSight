@@ -96,6 +96,14 @@ export default function BuildPage() {
 
   useEffect(() => () => clearTimeout(advanceTimer.current), []);
 
+  // Drawings take 15–40 s; if this step's isn't ready on arrival, don't pop it over the camera later.
+  const animReady = useRef(false);
+  animReady.current = Boolean(anim.image);
+  useEffect(() => {
+    const id = setTimeout(() => animReady.current || setWatching(false), 600);
+    return () => clearTimeout(id);
+  }, [progress?.step]);
+
   // Demos have no live camera to watch, so Flow plays them on a timer: light up the part, then check.
   useEffect(() => {
     if (!manual?.demo || !progress?.flow || !step || kindOf(step) !== "verify") return;
@@ -401,7 +409,7 @@ export default function BuildPage() {
   const hazardous = Boolean(manual.hazard && manual.hazard !== "none");
   const locked = phase === "checking" || phase === "correct" || timber.thinking;
   const flow = Boolean(progress.flow) && kind === "verify";
-  const showAnim = !flow && watching && phase === "work" && Boolean(anim.image || anim.drawing);
+  const showAnim = !flow && watching && phase === "work" && Boolean(anim.image);
   const upNext = progress.flow ? manual.steps.slice(progress.step + 1, progress.step + 3) : [];
 
   if (manual.prep?.length && !progress.prepDone) {
@@ -454,7 +462,7 @@ export default function BuildPage() {
     );
   }
 
-  const items = progress.flow && !progress.mapped ? mapItems(manual) : [];
+  const items = progress.flow && !progress.mapped && manual.mode !== "fix" ? mapItems(manual) : [];
   if (items.length) {
     return (
       <BuildMap

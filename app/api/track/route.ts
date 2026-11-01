@@ -7,7 +7,7 @@ const middle = (b: Box) => [(b.left + b.right) / 2, (b.top + b.bottom) / 2];
 const inside = ([x, y]: number[], b: Box) => x > b.left && x < b.right && y > b.top && y < b.bottom;
 // SAM on video misses "red 2x4 brick" but finds "red toy brick": second try drops sizes and says "toy" before the noun.
 const toyish = (p: string) => {
-  const words = p.replace(/\d+\s*[x×]\s*\d+/gi, "").split(/\s+/).filter(Boolean);
+  const words = p.replace(/\b\d+\s*[x×]\s*\d+\b/gi, "").split(/\s+/).filter(Boolean);
   return [...words.slice(0, -1), "toy", ...words.slice(-1)].join(" ");
 };
 const findLast = async (id: string, p: string) => (await lastBox(id, p)) ?? (await lastBox(id, toyish(p)));

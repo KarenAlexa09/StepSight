@@ -251,6 +251,62 @@ export async function furthestDone(image: string, steps: { instruction: string; 
   return Math.max(0, Math.min(steps.length, Math.round(done)));
 }
 
+export type Identified = { name: string; model: string; generic: boolean; sure: boolean };
+
+// "My things": find the exact product from the photo alone, searching the web to confirm, so Timber asks only when it truly can't tell.
+export async function identify(image: string, lang: Lang = "en"): Promise<Identified> {
+  const res = await fetch("https://api.meta.ai/v1/responses", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${process.env.MODEL_API_KEY}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model: MODEL,
+      reasoning: { effort: "low" },
+      tools: [{ type: "web_search" }],
+      input: [
+        {
+          type: "message",
+          role: "user",
+          content: [
+            {
+              type: "input_text",
+              text:
+                "Identify the exact product in this photo: brand and model. Use every clue: logos, printed text, labels, model numbers, shape, colors and design details, " +
+                "and search the web to confirm the match. " +
+                "generic: true for ordinary unbranded things where the brand doesn't matter (a rubber duck, a plain mug, a hammer). " +
+                "model: brand and model, or empty if you can't confirm it. sure: true only if the photo and your search clearly match that exact model. " +
+                `name: a short name of the product in ${SPEAK[lang]}, with brand and model if known.`,
+            },
+            { type: "input_image", image_url: image },
+          ],
+        },
+      ],
+      text: {
+        format: {
+          type: "json_schema",
+          name: "identified",
+          strict: true,
+          schema: {
+            type: "object",
+            additionalProperties: false,
+            required: ["name", "model", "generic", "sure"],
+            properties: { name: { type: "string" }, model: { type: "string" }, generic: { type: "boolean" }, sure: { type: "boolean" } },
+          },
+        },
+      },
+    }),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(`Spark ${res.status}: ${JSON.stringify(data).slice(0, 300)}`);
+  const text = (data.output ?? [])
+    .filter((item: { phase?: string }) => item.phase !== "commentary")
+    .flatMap((item: { content?: { type: string; text: string }[] }) => item.content ?? [])
+    .filter((c: { type: string }) => c.type === "output_text")
+    .map((c: { text: string }) => c.text)
+    .join("");
+  // With web search the model can narrate before the JSON.
+  return JSON.parse(text.slice(text.indexOf("{"), text.lastIndexOf("}") + 1));
+}
+
 export async function describeStrip(title: string, instruction: string, target: string): Promise<string> {
   const { scene } = await ask<{ scene: string }>(
     [
