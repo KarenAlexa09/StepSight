@@ -1106,210 +1106,6 @@ html.slow .c-anim-frame img {
   border-radius: 0;
 }
 
-.c-map-goal {
-  margin: 0;
-  flex: none;
-  width: 96px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
-}
-
-.c-map-goal > img,
-.c-map-goal > .c-dots {
-  width: 96px;
-  height: 96px;
-  border-radius: 16px;
-  object-fit: cover;
-  background: var(--soft);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.c-map-goal figcaption {
-  font-size: 11px;
-  color: var(--pencil);
-  text-align: center;
-}
-
-.c-map-badge {
-  fill: var(--ink);
-  stroke: var(--highlighter);
-  stroke-width: 3;
-  vector-effect: non-scaling-stroke;
-}
-
-.c-map-num {
-  fill: var(--highlighter);
-  font-family: var(--font-mono), monospace;
-  font-weight: 700;
-  text-anchor: middle;
-  dominant-baseline: central;
-}
-
-.c-map-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.c-map-list li {
-  display: flex;
-  gap: 10px;
-  align-items: flex-start;
-  font-size: 14px;
-  line-height: 20px;
-}
-
-.c-map-list b {
-  flex: none;
-  width: 24px;
-  height: 24px;
-  border-radius: 12px;
-  background: var(--ink);
-  color: var(--highlighter);
-  font: 700 12px var(--font-mono), monospace;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.c-map-list li.missing span {
-  color: var(--pencil);
-  text-decoration: line-through;
-}
-
-.stage .anchor {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  pointer-events: none;
-}
-
-.stage .anchor g {
-  transition: opacity 0.2s;
-}
-
-.stage .anchor .ar-fill {
-  fill: var(--highlighter);
-  fill-opacity: 0.12;
-}
-
-.stage .anchor .ar-corners {
-  fill: none;
-  stroke: var(--highlighter);
-  stroke-width: 5;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  filter: drop-shadow(0 0 4px rgba(0, 0, 0, 0.5));
-}
-
-.stage .anchor .ar-link {
-  stroke: var(--highlighter);
-  stroke-width: 3;
-  stroke-dasharray: 2 9;
-  stroke-linecap: round;
-  animation: ar-dash 0.8s linear infinite;
-}
-
-@keyframes ar-dash {
-  to {
-    stroke-dashoffset: -22;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .stage .anchor .ar-link {
-    animation: none;
-  }
-}
-
-.stage .anchor .ar-label {
-  fill: var(--highlighter);
-  font-family: var(--font-sans), sans-serif;
-  font-weight: 700;
-  paint-order: stroke;
-  stroke: rgba(20, 20, 20, 0.75);
-  stroke-width: 6px;
-}
-
-.c-flow-tag {
-  display: inline-block;
-  margin-right: 8px;
-  padding: 2px 8px;
-  border-radius: 999px;
-  background: var(--ink);
-  color: var(--highlighter);
-  font: 12px var(--font-mono), monospace;
-  vertical-align: 1px;
-}
-
-.c-pace {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
-}
-
-.c-pace button {
-  min-height: 104px;
-  padding: 14px;
-  border: 2px solid #e6e3dc;
-  border-radius: 18px;
-  background: #fff;
-  color: var(--ink);
-  font: inherit;
-  text-align: left;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  cursor: pointer;
-}
-
-.c-pace button[aria-pressed="true"] {
-  border-color: var(--ink);
-  box-shadow: 4px 4px 0 var(--highlighter);
-}
-
-.c-pace b {
-  font-size: 16px;
-}
-
-.c-pace i {
-  margin-left: 4px;
-  padding: 2px 6px;
-  border-radius: 999px;
-  background: var(--ink);
-  color: var(--highlighter);
-  font: normal 10px var(--font-mono), monospace;
-  vertical-align: 2px;
-}
-
-.c-pace span {
-  font-size: 13px;
-  line-height: 18px;
-  color: var(--pencil);
-}
-
-.c-next {
-  margin: 0;
-  padding: 10px 14px 10px 32px;
-  border-radius: 14px;
-  background: #f7f6f2;
-  color: var(--pencil);
-  font-size: 14px;
-  line-height: 20px;
-}
-
-.c-next li + li {
-  margin-top: 4px;
-}
-
 /* While a part is highlighted its own label and Close button sit at the bottom. */
 .c-cam:has(.stage.frozen) .c-cam-bottom {
   display: none;
@@ -1322,8 +1118,14 @@ html.slow .c-anim-frame img {
 }
 
 /* Below the top bar, so the "Watch again" and "Show me" pills never cover it. */
-.c-cam .hint {
+.c-cam .stage .hint {
   inset: 76px 12px auto;
+  padding: 8px 14px;
+  border: none;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.92);
+  font: 600 14px var(--font-sans), sans-serif;
+  text-align: center;
 }
 
 .c-cam > .c-anim {
@@ -1904,8 +1706,7 @@ html.slow .c-anim-frame img {
   text-transform: none;
 }
 
-/* notices inside the camera sit above the overlapping sheet */
-.c-cam .stage .hint,
+/* "Hold steady" is a small pill above the overlapping sheet */
 .c-cam .stage .steady {
   top: auto;
   bottom: 40px;

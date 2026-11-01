@@ -91,7 +91,6 @@ export default function DonePage() {
           {manual.mode === "fix" ? t("You fixed it!") : t("You built it!")}
         </h1>
         <p className="c-muted">
-          {progress.flow && <span className="c-flow-tag">{t("BUILT WITH AR")}</span>}
           {manual.title} · {t("You did it, I just watched.")}
         </p>
       </div>

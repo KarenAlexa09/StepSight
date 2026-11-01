@@ -71,6 +71,8 @@ export type Understood = {
   model: string;
   needsModel: boolean;
   query: string;
+  danger: boolean;
+  safety: string;
 };
 
 export async function understand(said: string, image?: string, history: Turn[] = [], lang: Lang = "en"): Promise<Understood> {
@@ -82,13 +84,20 @@ export async function understand(said: string, image?: string, history: Turn[] =
         text:
           "You are Timber, a friendly beaver who helps people build and fix things. Someone wants help with a physical task. " +
           "Use what they said, the conversation so far and the photo, if any. " +
-          "clear: true only if you can tell which kind of product or object it is. " +
+          "clear: true only if you can tell which kind of product or object it is, and the task is building, setting up, fixing or caring for a physical object. " +
+          "Cooking and recipes, health, people, pets and software-only problems are not Timber's job: clear false, and question gently says what Timber can help with. " +
+          "A bare 4 to 6 digit number is usually a LEGO set number: use it as the model if you recognize the set. " +
+          "When the person changes their mind, the latest message wins (for example 'actually it's already built, a drawer came off' turns a build into a fix). " +
+          "danger: true only when doing it yourself is genuinely dangerous for a beginner or legally needs a professional: gas leaks or opening gas appliances, the electrical panel, breakers or mains wiring, car brakes, airbags or steering, " +
+          "the inside of microwaves, TVs or other high-voltage parts, roofs or heights, structural walls. Not for ordinary tasks done with care (changing a bulb with the lamp unplugged, cleaning, assembling furniture, a bike). " +
+          `If danger is true, ready is false, question and options are empty, and safety is one or two short, calm sentences in ${SPEAK[lang]} saying what to do right now and who to call; otherwise safety is empty. ` +
           "name: its most specific name from everything you know (brand and model if known, otherwise a plain description like 'bicycle chain'), max 8 words. " +
           "mode: 'fix' for anything repair, replacement of a part, maintenance, cleaning or troubleshooting (a broken thing, a dead bulb, a clogged drain), otherwise 'build' (assemble, install, set up or use something new). Cleaning or dusting is always 'fix', even for a LEGO set or furniture. Putting a fallen piece back on, or rebuilding part of, something that has building instructions (a LEGO set, flat-pack furniture) is 'build', because the building instructions show where it goes. " +
           "issue: if mode is fix, the task or what is wrong in a few words; otherwise empty. " +
           "needsModel: true when the right steps depend on the exact model, which is true for almost every electronic or powered product and appliance (headphones, phone, coffee machine, vacuum, printer, router, camera, console) and for branded furniture; false for generic things (bicycle chain, dripping tap, light bulb, clogged drain). " +
           "model: the brand and model exactly as the person or the photo (label, logo, model number) gives them, or empty if unknown. A product line name that already implies the brand counts as a model: 'Kallax' is 'IKEA Kallax', 'AirPods Pro' is 'Apple AirPods Pro'; a size or variant the person adds (like '2x4') completes it.Set it to 'generic' only after the person explicitly chose a generic guide; saying they don't know the model is not enough, ask for a photo first. " +
           "ready: true only when (needsModel is false or model is not empty) AND you know what the person wants done with it. Never guess a brand or model; you may name one from the photo only when the product is clearly recognizable (a distinctive design or a visible logo). If the product is a set or kit with several separate builds (for example a LEGO set with two plants, or a 3-in-1 set), and the person wants to build it, the model must also say which build; if a photo shows only one of them, that is the one; otherwise ready is false until you know which. For cleaning or other care, don't ask which build. " +
+          "When the problem is already clear (won't turn on, won't print, won't pair, blinking orange), don't ask what's wrong. " +
           "If not ready, question is ONE short friendly question about the single most useful missing detail. Ask for brand and model first (a brand alone is not enough), then which build if it is a set with several; only after that ask what exactly is wrong or what task they want. " +
           "If they don't know the model, ask them to send a photo of the label or model number, and offer a generic guide as an option. " +
           "options are up to 4 short likely answers (for a missing model offer likely brands, not tasks). When ready, question is empty and options is empty. " +
@@ -103,7 +112,7 @@ export async function understand(said: string, image?: string, history: Turn[] =
     {
       type: "object",
       additionalProperties: false,
-      required: ["clear", "ready", "name", "mode", "issue", "question", "options", "model", "needsModel", "query"],
+      required: ["clear", "ready", "name", "mode", "issue", "question", "options", "model", "needsModel", "query", "danger", "safety"],
       properties: {
         clear: { type: "boolean" },
         ready: { type: "boolean" },
@@ -114,6 +123,8 @@ export async function understand(said: string, image?: string, history: Turn[] =
         options: { type: "array", items: { type: "string" } },
         model: { type: "string" },
         needsModel: { type: "boolean" },
+        danger: { type: "boolean" },
+        safety: { type: "string" },
         query: { type: "string" },
       },
     },
@@ -121,6 +132,7 @@ export async function understand(said: string, image?: string, history: Turn[] =
   );
   // The model sometimes says ready without a model; don't trust it for product-specific tasks.
   if (data.ready && data.needsModel && !data.model.trim()) data.ready = false;
+  if (data.danger) data.ready = false;
   return data;
 }
 
@@ -228,27 +240,6 @@ export async function judgeStrip(image: string, instruction: string): Promise<{ 
     { type: "object", additionalProperties: false, required: ["ok", "problem"], properties: { ok: { type: "boolean" }, problem: { type: "string" } } },
     "low",
   );
-}
-
-// Flow lets people build ahead: which of the next steps is the last one already done in the photo (0 = none, 1 = the current one).
-export async function furthestDone(image: string, steps: { instruction: string; check: string }[]): Promise<number> {
-  const { done } = await ask<{ done: number }>(
-    [
-      {
-        type: "input_text",
-        text:
-          "This photo shows someone's build. These are the next steps in order, each with what is visibly true once it is done:\n" +
-          steps.map((s, i) => `${i + 1}. ${s.instruction} (done when: ${s.check})`).join("\n") +
-          "\ndone = the number of the LAST step that is clearly done in the photo. A later step can hide earlier parts; if it is done, the earlier ones are too. " +
-          "0 if not even step 1 is clearly done. Judge only what you can see; when unsure, pick the lower number.",
-      },
-      { type: "input_image", image_url: image },
-    ],
-    "furthest",
-    { type: "object", additionalProperties: false, required: ["done"], properties: { done: { type: "integer" } } },
-    "low",
-  );
-  return Math.max(0, Math.min(steps.length, Math.round(done)));
 }
 
 export type Identified = { name: string; model: string; generic: boolean; sure: boolean };

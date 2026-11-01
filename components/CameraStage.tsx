@@ -7,7 +7,6 @@ import type { Motion } from "../lib/manual";
 import type { Box, Match } from "../lib/sam";
 import { getSettings } from "../lib/settings";
 import { play } from "../lib/sound";
-import { cut, follow, toGray, TRACK_WIDTH, type Patch } from "../lib/track";
 
 const SAMPLE_WIDTH = 32;
 const SAMPLE_HEIGHT = 24;
@@ -30,14 +29,6 @@ const PARTICLES: [number, number, string][] = [
 ];
 
 const DIRECTIONS: Record<string, [number, number]> = { up: [0, -1], down: [0, 1], left: [-1, 0], right: [1, 0] };
-
-// Flow: after "grab this one", the camera goes live again and these follow the part and its base.
-type Anchor = { width: number; height: number; scale: number; label: string; lostAt: number; items: { match: Match; dest: boolean; patch: Patch; x0: number; y0: number; seen: boolean }[] };
-
-const LOST_MS = 2500;
-const LOST = 45;
-const CLIP_MAX_MS = 8000;
-const CLIP_TYPE = () => (typeof MediaRecorder === "undefined" ? "" : (["video/mp4;codecs=avc1", "video/mp4"].find((t) => MediaRecorder.isTypeSupported(t)) ?? ""));
 
 type Snapshot = Shot & {
   matches: Match[];
@@ -63,6 +54,7 @@ function difference(a: Uint8ClampedArray, b: Uint8ClampedArray) {
 
 const center = (m: Match) => [(m.bounds.left + m.bounds.right) / 2, (m.bounds.top + m.bounds.bottom) / 2] as const;
 
+// Part names stay in English for SAM, so Spanish screens don't show them.
 const named = () => getSettings().lang === "en";
 
 function labelOf(motion: Motion | undefined) {
@@ -133,8 +125,6 @@ export default function CameraStage({
   resetKey = 0,
   demo,
   onStatus,
-  onSettle,
-  anchored = false,
 }: {
   ref: Ref<CameraHandle>;
   live: boolean;
@@ -142,8 +132,6 @@ export default function CameraStage({
   resetKey?: number;
   demo?: string;
   onStatus: (status: string) => void;
-  onSettle?: (clip?: Blob) => void;
-  anchored?: boolean;
 }) {
   const t = useT();
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -152,9 +140,6 @@ export default function CameraStage({
   const lastSample = useRef<Uint8ClampedArray | null>(null);
   const steadyTicks = useRef(0);
   const movedTicks = useRef(0);
-  const active = useRef(false);
-  const settle = useRef(onSettle);
-  settle.current = onSettle;
   const busy = useRef(false);
   const [photo, setPhoto] = useState<string | null>(null);
   const [cameraError, setCameraError] = useState(false);
@@ -162,9 +147,6 @@ export default function CameraStage({
   const [memo, setMemo] = useState<Snapshot | null>(null);
   const [searching, setSearching] = useState(false);
   const [moving, setMoving] = useState(false);
-  const [anchor, setAnchor] = useState<Anchor | null>(null);
-  const tracker = useRef<CanvasRenderingContext2D | null>(null);
-  const recorder = useRef<{ rec: MediaRecorder; chunks: Blob[]; at: number } | null>(null);
 
   useEffect(() => {
     let stream: MediaStream | undefined;
@@ -186,98 +168,11 @@ export default function CameraStage({
   useEffect(() => {
     setSnapshot(null);
     setMemo(null);
-    setAnchor(null);
-    active.current = false;
   }, [resetKey]);
-
-  // The live video, or the photo in demos and uploads (where nothing moves, so the outline just stays put).
-  function trackFrame() {
-    const img = photo ? photoRef.current : null;
-    const video = img ? null : videoRef.current;
-    const [w, h] = img ? [img.naturalWidth, img.naturalHeight] : [video?.videoWidth ?? 0, video?.videoHeight ?? 0];
-    if (!w || !h) return null;
-    const height = Math.round((TRACK_WIDTH * h) / w);
-    if (!tracker.current || tracker.current.canvas.height !== height) {
-      const canvas = document.createElement("canvas");
-      canvas.width = TRACK_WIDTH;
-      canvas.height = height;
-      tracker.current = canvas.getContext("2d", { willReadFrequently: true });
-    }
-    tracker.current!.drawImage((img ?? video)!, 0, 0, TRACK_WIDTH, height);
-    return toGray(tracker.current!.getImageData(0, 0, TRACK_WIDTH, height).data, TRACK_WIDTH, height);
-  }
-
-  // AR: no frozen picture; outlines go straight onto the live video and follow the parts.
-  function startAnchor(snap: Snapshot) {
-    const frame = trackFrame();
-    if (!frame) return false;
-    const scale = TRACK_WIDTH / snap.width;
-    const items = [{ match: snap.matches[0], dest: false }, ...(snap.dest ? [{ match: snap.dest, dest: true }] : [])].flatMap(({ match, dest }) => {
-      const b = match.bounds;
-      const patch = cut(frame, { left: b.left * scale, top: b.top * scale, right: b.right * scale, bottom: b.bottom * scale });
-      return patch ? [{ match, dest, patch, x0: patch.x, y0: patch.y, seen: true }] : [];
-    });
-    if (!items.length) return false;
-    setAnchor({ width: snap.width, height: snap.height, scale, label: snap.label, lostAt: 0, items });
-    return true;
-  }
-
-  useEffect(() => {
-    if (!anchor) return;
-    const id = setInterval(() => {
-      const frame = trackFrame();
-      if (!frame) return;
-      setAnchor((a) => {
-        if (!a) return a;
-        for (const item of a.items) {
-          const found = follow(frame, item.patch);
-          item.seen = found.error < LOST;
-          if (item.seen) {
-            item.patch.x = found.x;
-            item.patch.y = found.y;
-          }
-        }
-        const lost = !a.items[0].seen;
-        if (!lost) a.lostAt = 0;
-        else if (!a.lostAt) a.lostAt = Date.now();
-        else if (Date.now() - a.lostAt > LOST_MS) return null;
-        return { ...a };
-      });
-    }, 100);
-    return () => clearInterval(id);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [anchor !== null]);
-
-  // The clip of the hands at work, from the first big move to the moment things go still; SAM watches it.
-  function startClip() {
-    const type = CLIP_TYPE();
-    const stream = videoRef.current?.srcObject;
-    if (!type || !(stream instanceof MediaStream)) return;
-    if (recorder.current && Date.now() - recorder.current.at < CLIP_MAX_MS) return;
-    recorder.current?.rec.stop();
-    const rec = new MediaRecorder(stream, { mimeType: type, videoBitsPerSecond: 1_000_000 });
-    const clip = { rec, chunks: [] as Blob[], at: Date.now() };
-    rec.ondataavailable = (e) => e.data.size && clip.chunks.push(e.data);
-    rec.start();
-    recorder.current = clip;
-  }
-
-  function stopClip(): Promise<Blob | undefined> {
-    const clip = recorder.current;
-    recorder.current = null;
-    if (!clip || clip.rec.state === "inactive") return Promise.resolve(undefined);
-    return new Promise((resolve) => {
-      clip.rec.onstop = () => resolve(new Blob(clip.chunks, { type: clip.rec.mimeType.split(";")[0] }));
-      clip.rec.stop();
-    });
-  }
-
-  useEffect(() => () => recorder.current?.rec.stop(), []);
 
   useEffect(() => {
     if (!demo) return;
     setSnapshot(null);
-    setAnchor(null);
     setPhoto(demo);
   }, [demo]);
 
@@ -317,7 +212,6 @@ export default function CameraStage({
   async function find(target: string, motion?: Motion) {
     if (busy.current) return 0;
     setSnapshot(null);
-    setAnchor(null);
     const shot = capture();
     if (!shot) {
       onStatus(photo ? t("Image isn't ready yet") : t("Camera isn't ready yet"));
@@ -348,13 +242,9 @@ export default function CameraStage({
         key: Date.now(),
         reference,
       };
+      setSnapshot(next);
       setMemo(next);
       onStatus(t("Found it"));
-      if (anchored && startAnchor(next)) {
-        play("boop");
-        return data.matches.length;
-      }
-      setSnapshot(next);
       return data.matches.length;
     } catch (error) {
       onStatus(error instanceof Error && error.message ? t(error.message) : t("Something went wrong"));
@@ -400,7 +290,6 @@ export default function CameraStage({
         if (movedTicks.current >= MOVED_TICKS) {
           movedTicks.current = 0;
           steadyTicks.current = 0;
-          active.current = true;
           setSnapshot(null);
           setMoving(true);
           onStatus(t("Hold steady…"));
@@ -408,27 +297,16 @@ export default function CameraStage({
         return;
       }
 
-      const change = previous ? difference(previous, current) : 0;
-      if (change > MOVED) {
-        active.current = true;
-        if (settle.current) startClip();
-      }
-      steadyTicks.current = previous && change < STEADY ? steadyTicks.current + 1 : 0;
+      steadyTicks.current = previous && difference(previous, current) < STEADY ? steadyTicks.current + 1 : 0;
       if (steadyTicks.current >= STEADY_TICKS) {
         steadyTicks.current = 0;
         setMoving(false);
-        // shortcut: any big move then stillness counts as "hands out", so moving the phone also triggers a check; compare against the step's first frame if that misfires.
-        if (settle.current && active.current) {
-          active.current = false;
-          stopClip().then((clip) => settle.current?.(clip));
-          return;
-        }
-        if (live && !anchor) find(autoTarget);
+        if (live) find(autoTarget);
       }
     }, 250);
     return () => clearInterval(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [photo, cameraError, snapshot, live, autoTarget, anchor !== null]);
+  }, [photo, cameraError, snapshot, live, autoTarget]);
 
   const memoVec = memo ? vectorOf(memo) : null;
 
@@ -444,30 +322,6 @@ export default function CameraStage({
         // eslint-disable-next-line @next/next/no-img-element
         <img src={snapshot.image} alt={t("Snapshot of your table")} className="media" />
       )}
-      {anchor && !snapshot && (
-        <svg className="anchor" viewBox={`0 0 ${anchor.width} ${anchor.height}`} preserveAspectRatio="xMidYMid slice" aria-hidden="true">
-          {anchor.items.map((item) => {
-            const dx = (item.patch.x - item.x0) / anchor.scale;
-            const dy = (item.patch.y - item.y0) / anchor.scale;
-            const unit = Math.max(anchor.width, anchor.height) / 100;
-            return (
-              <g key={item.dest ? "dest" : "part"} transform={`translate(${dx} ${dy})`} style={{ opacity: item.seen ? 1 : 0 }}>
-                {item.dest ? <DestBox match={item.match} unit={unit} /> : <Brackets match={item.match} unit={unit} label={anchor.label} below={item.match.bounds.top < anchor.height * 0.2} />}
-              </g>
-            );
-          })}
-          {anchor.items.length > 1 && anchor.items.every((item) => item.seen) && (
-            <line
-              className="ar-link"
-              x1={center(anchor.items[0].match)[0] + (anchor.items[0].patch.x - anchor.items[0].x0) / anchor.scale}
-              y1={center(anchor.items[0].match)[1] + (anchor.items[0].patch.y - anchor.items[0].y0) / anchor.scale}
-              x2={center(anchor.items[1].match)[0] + (anchor.items[1].patch.x - anchor.items[1].x0) / anchor.scale}
-              y2={center(anchor.items[1].match)[1] + (anchor.items[1].patch.y - anchor.items[1].y0) / anchor.scale}
-              vectorEffect="non-scaling-stroke"
-            />
-          )}
-        </svg>
-      )}
       {searching && <span className="scan" aria-hidden="true" />}
       {snapshot && <FoundIt key={snapshot.key} snapshot={snapshot} />}
       {snapshot && (
@@ -475,7 +329,7 @@ export default function CameraStage({
           {photo ? t("Close") : t("Back to camera")}
         </button>
       )}
-      {memo && !snapshot && !anchored && (
+      {memo && !snapshot && (
         <button
           type="button"
           className="memo"
@@ -517,26 +371,6 @@ export default function CameraStage({
         </label>
       )}
     </div>
-  );
-}
-
-// AR corner brackets around the part, with its label; steadier to look at than a raw mask edge.
-function Brackets({ match, unit, label, below }: { match: Match; unit: number; label: string; below: boolean }) {
-  const { left, top, right, bottom } = match.bounds;
-  const pad = unit;
-  const [x1, y1, x2, y2] = [left - pad, top - pad, right + pad, bottom + pad];
-  const arm = Math.max(unit * 3, Math.min(x2 - x1, y2 - y1) * 0.25);
-  const corners = `M${x1} ${y1 + arm}V${y1}H${x1 + arm}M${x2 - arm} ${y1}H${x2}V${y1 + arm}M${x2} ${y2 - arm}V${y2}H${x2 - arm}M${x1 + arm} ${y2}H${x1}V${y2 - arm}`;
-  return (
-    <>
-      <rect className="ar-fill" x={x1} y={y1} width={x2 - x1} height={y2 - y1} rx={unit * 2} />
-      <path className="ar-corners" d={corners} vectorEffect="non-scaling-stroke" />
-      {label && (
-        <text className="ar-label" x={x1} y={below ? y2 + unit * 5 : y1 - unit * 1.5} fontSize={unit * 4}>
-          {label}
-        </text>
-      )}
-    </>
   );
 }
 

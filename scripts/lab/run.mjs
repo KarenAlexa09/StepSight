@@ -74,8 +74,10 @@ async function play(c) {
     asks++;
   }
 
+  if (e.askedAbout) check(`offers ${e.askedAbout}`, transcript.some((t) => e.askedAbout.test(t.timber ?? "")) || e.askedAbout.test(last.options.join(" ")), transcript.map((t) => t.timber).join(" / "));
+  if (e.danger !== undefined) check(e.danger ? "flags it as dangerous" : "doesn't flag it as dangerous", Boolean(last.danger) === e.danger, `danger=${last.danger}`);
   if (e.notReady) check("waits for more detail", !last.ready || !last.clear, `ready=${last.ready}`);
-  else if (!c.thing) check("ends ready to search", last.ready, last.question);
+  else if (!c.thing && !e.danger && !e.askedAbout) check("ends ready to search", last.ready, last.question);
   if (e.mode) check(`mode is ${e.mode}`, last.mode === e.mode, last.mode);
   for (const re of e.query ?? []) check(`query has ${re}`, re.test(last.query), last.query);
   if (e.name) check(`name has ${e.name}`, e.name.test(last.name), last.name);

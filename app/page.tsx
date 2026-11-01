@@ -203,16 +203,6 @@ export default function Home() {
             >
               {t("Try the demo")}
             </button>
-            <button
-              type="button"
-              className="c-chip"
-              onClick={() => {
-                startDemo("tower", true);
-                router.push("/build");
-              }}
-            >
-              {t("Try AR")}
-            </button>
           </div>
         </>
       )}

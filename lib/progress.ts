@@ -11,8 +11,6 @@ export type Progress = {
   mistakes: number;
   triedThisStep: boolean;
   prepDone?: boolean;
-  flow?: boolean;
-  mapped?: boolean;
   startedAt: number;
   finishedAt: number | null;
   activeMs?: number;

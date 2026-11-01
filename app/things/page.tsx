@@ -53,7 +53,10 @@ export default function ThingsPage() {
           .catch(() => null);
         if (found?.name.trim()) name = found.name.trim();
         if (found?.sure && found.model.trim()) model = found.model.trim();
-        else if (!found?.generic || !name) {
+        else if (found?.generic && name) {
+          setThings(addThing({ name, model: "", photo, generic: true }));
+          return;
+        } else {
           sendIntent({ image, thing: true });
           router.push("/manual");
           return;
@@ -125,7 +128,7 @@ export default function ThingsPage() {
               </button>
               <b>{thing.name}</b>
               <span className="c-row-between" style={{ margin: 0 }}>
-                <small>{!thing.model ? t("No model yet") : thing.name.toLowerCase().includes(thing.model.toLowerCase()) ? "" : thing.model}</small>
+                <small>{thing.generic ? "" : !thing.model ? t("No model yet") : thing.name.toLowerCase().includes(thing.model.toLowerCase()) ? "" : thing.model}</small>
                 <button type="button" className="c-link" style={{ padding: "4px 0", fontSize: 12 }} onClick={() => setThings(removeThing(thing.id))}>
                   {t("Remove")}
                 </button>
