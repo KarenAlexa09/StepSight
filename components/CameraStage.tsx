@@ -5,7 +5,9 @@ import { useEffect, useImperativeHandle, useRef, useState, type CSSProperties, t
 import { maskTransform, toShot, type Shot } from "../lib/image";
 import type { Motion } from "../lib/manual";
 import type { Box, Match } from "../lib/sam";
+import { getSettings } from "../lib/settings";
 import { play } from "../lib/sound";
+import { cut, follow, toGray, TRACK_WIDTH, type Patch } from "../lib/track";
 
 const SAMPLE_WIDTH = 32;
 const SAMPLE_HEIGHT = 24;
@@ -28,6 +30,14 @@ const PARTICLES: [number, number, string][] = [
 ];
 
 const DIRECTIONS: Record<string, [number, number]> = { up: [0, -1], down: [0, 1], left: [-1, 0], right: [1, 0] };
+
+// Flow: after "grab this one", the camera goes live again and these follow the part and its base.
+type Anchor = { width: number; height: number; scale: number; items: { match: Match; dest: boolean; patch: Patch; x0: number; y0: number; seen: boolean }[] };
+
+const ANCHOR_AFTER_MS = 2200;
+const LOST = 45;
+const CLIP_MAX_MS = 8000;
+const CLIP_TYPE = () => (typeof MediaRecorder === "undefined" ? "" : (["video/mp4;codecs=avc1", "video/mp4"].find((t) => MediaRecorder.isTypeSupported(t)) ?? ""));
 
 type Snapshot = Shot & {
   matches: Match[];
@@ -53,8 +63,10 @@ function difference(a: Uint8ClampedArray, b: Uint8ClampedArray) {
 
 const center = (m: Match) => [(m.bounds.left + m.bounds.right) / 2, (m.bounds.top + m.bounds.bottom) / 2] as const;
 
+const named = () => getSettings().lang === "en";
+
 function labelOf(motion: Motion | undefined) {
-  if (motion?.type === "connect" && motion.to) return tr("Attach to the {to}", { to: motion.to });
+  if (motion?.type === "connect" && motion.to) return named() ? tr("Attach to the {to}", { to: motion.to }) : tr("Attach it here");
   if (motion?.type === "move" && motion.direction) return tr("Move it {dir}", { dir: tr(motion.direction) });
   if (motion?.type === "remove") return tr("Take this off");
   return tr("This one");
@@ -121,6 +133,8 @@ export default function CameraStage({
   resetKey = 0,
   demo,
   onStatus,
+  onSettle,
+  anchored = false,
 }: {
   ref: Ref<CameraHandle>;
   live: boolean;
@@ -128,6 +142,8 @@ export default function CameraStage({
   resetKey?: number;
   demo?: string;
   onStatus: (status: string) => void;
+  onSettle?: (clip?: Blob) => void;
+  anchored?: boolean;
 }) {
   const t = useT();
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -136,6 +152,9 @@ export default function CameraStage({
   const lastSample = useRef<Uint8ClampedArray | null>(null);
   const steadyTicks = useRef(0);
   const movedTicks = useRef(0);
+  const active = useRef(false);
+  const settle = useRef(onSettle);
+  settle.current = onSettle;
   const busy = useRef(false);
   const [photo, setPhoto] = useState<string | null>(null);
   const [cameraError, setCameraError] = useState(false);
@@ -143,6 +162,9 @@ export default function CameraStage({
   const [memo, setMemo] = useState<Snapshot | null>(null);
   const [searching, setSearching] = useState(false);
   const [moving, setMoving] = useState(false);
+  const [anchor, setAnchor] = useState<Anchor | null>(null);
+  const tracker = useRef<CanvasRenderingContext2D | null>(null);
+  const recorder = useRef<{ rec: MediaRecorder; chunks: Blob[]; at: number } | null>(null);
 
   useEffect(() => {
     let stream: MediaStream | undefined;
@@ -164,7 +186,91 @@ export default function CameraStage({
   useEffect(() => {
     setSnapshot(null);
     setMemo(null);
+    setAnchor(null);
+    active.current = false;
   }, [resetKey]);
+
+  function trackFrame() {
+    const video = videoRef.current;
+    if (!video?.videoWidth) return null;
+    const height = Math.round((TRACK_WIDTH * video.videoHeight) / video.videoWidth);
+    if (!tracker.current || tracker.current.canvas.height !== height) {
+      const canvas = document.createElement("canvas");
+      canvas.width = TRACK_WIDTH;
+      canvas.height = height;
+      tracker.current = canvas.getContext("2d", { willReadFrequently: true });
+    }
+    tracker.current!.drawImage(video, 0, 0, TRACK_WIDTH, height);
+    return toGray(tracker.current!.getImageData(0, 0, TRACK_WIDTH, height).data, TRACK_WIDTH, height);
+  }
+
+  // Swap the frozen "grab this one" picture for live video with outlines that follow the parts.
+  useEffect(() => {
+    if (!anchored || photo || !snapshot) return;
+    const id = setTimeout(() => {
+      const frame = trackFrame();
+      if (!frame) return;
+      const scale = TRACK_WIDTH / snapshot.width;
+      const items = [{ match: snapshot.matches[0], dest: false }, ...(snapshot.dest ? [{ match: snapshot.dest, dest: true }] : [])].flatMap(({ match, dest }) => {
+        const b = match.bounds;
+        const patch = cut(frame, { left: b.left * scale, top: b.top * scale, right: b.right * scale, bottom: b.bottom * scale });
+        return patch ? [{ match, dest, patch, x0: patch.x, y0: patch.y, seen: true }] : [];
+      });
+      if (!items.length) return;
+      setAnchor({ width: snapshot.width, height: snapshot.height, scale, items });
+      setSnapshot(null);
+    }, ANCHOR_AFTER_MS);
+    return () => clearTimeout(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [anchored, photo, snapshot]);
+
+  useEffect(() => {
+    if (!anchor) return;
+    const id = setInterval(() => {
+      const frame = trackFrame();
+      if (!frame) return;
+      setAnchor((a) => {
+        if (!a) return a;
+        for (const item of a.items) {
+          const found = follow(frame, item.patch);
+          item.seen = found.error < LOST;
+          if (item.seen) {
+            item.patch.x = found.x;
+            item.patch.y = found.y;
+          }
+        }
+        return { ...a };
+      });
+    }, 100);
+    return () => clearInterval(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [anchor !== null]);
+
+  // The clip of the hands at work, from the first big move to the moment things go still; SAM watches it.
+  function startClip() {
+    const type = CLIP_TYPE();
+    const stream = videoRef.current?.srcObject;
+    if (!type || !(stream instanceof MediaStream)) return;
+    if (recorder.current && Date.now() - recorder.current.at < CLIP_MAX_MS) return;
+    recorder.current?.rec.stop();
+    const rec = new MediaRecorder(stream, { mimeType: type, videoBitsPerSecond: 1_000_000 });
+    const clip = { rec, chunks: [] as Blob[], at: Date.now() };
+    rec.ondataavailable = (e) => e.data.size && clip.chunks.push(e.data);
+    rec.start();
+    recorder.current = clip;
+  }
+
+  function stopClip(): Promise<Blob | undefined> {
+    const clip = recorder.current;
+    recorder.current = null;
+    if (!clip || clip.rec.state === "inactive") return Promise.resolve(undefined);
+    return new Promise((resolve) => {
+      clip.rec.onstop = () => resolve(new Blob(clip.chunks, { type: clip.rec.mimeType.split(";")[0] }));
+      clip.rec.stop();
+    });
+  }
+
+  useEffect(() => () => recorder.current?.rec.stop(), []);
 
   useEffect(() => {
     if (!demo) return;
@@ -208,6 +314,7 @@ export default function CameraStage({
   async function find(target: string, motion?: Motion) {
     if (busy.current) return 0;
     setSnapshot(null);
+    setAnchor(null);
     const shot = capture();
     if (!shot) {
       onStatus(photo ? t("Image isn't ready yet") : t("Camera isn't ready yet"));
@@ -217,7 +324,7 @@ export default function CameraStage({
     busy.current = true;
     setSearching(true);
     setMoving(false);
-    onStatus(t("Looking for {target}…", { target }));
+    onStatus(named() ? t("Looking for {target}…", { target }) : t("Looking for the part…"));
     play("whoosh");
     try {
       const wantsDest = motion?.type === "connect" && motion.to;
@@ -225,9 +332,8 @@ export default function CameraStage({
         segment(shot, target),
         wantsDest ? segment(shot, motion.to).catch(() => null) : null,
       ]);
-      const seconds = (data.ms / 1000).toFixed(1);
       if (data.matches.length === 0) {
-        onStatus(t("No {target} here · {s} s", { target, s: seconds }));
+        onStatus(named() ? t("No {target} here", { target }) : t("I can't see that part here"));
         return 0;
       }
       const next: Snapshot = {
@@ -241,7 +347,7 @@ export default function CameraStage({
       };
       setSnapshot(next);
       setMemo(next);
-      onStatus(`${data.via === "sam" ? t("Found it") : t("Found it, looked closer")} · ${seconds} s`);
+      onStatus(t("Found it"));
       return data.matches.length;
     } catch (error) {
       onStatus(error instanceof Error && error.message ? t(error.message) : t("Something went wrong"));
@@ -287,6 +393,7 @@ export default function CameraStage({
         if (movedTicks.current >= MOVED_TICKS) {
           movedTicks.current = 0;
           steadyTicks.current = 0;
+          active.current = true;
           setSnapshot(null);
           setMoving(true);
           onStatus(t("Hold steady…"));
@@ -294,16 +401,27 @@ export default function CameraStage({
         return;
       }
 
-      steadyTicks.current = previous && difference(previous, current) < STEADY ? steadyTicks.current + 1 : 0;
+      const change = previous ? difference(previous, current) : 0;
+      if (change > MOVED) {
+        active.current = true;
+        if (settle.current) startClip();
+      }
+      steadyTicks.current = previous && change < STEADY ? steadyTicks.current + 1 : 0;
       if (steadyTicks.current >= STEADY_TICKS) {
         steadyTicks.current = 0;
         setMoving(false);
-        if (live) find(autoTarget);
+        // shortcut: any big move then stillness counts as "hands out", so moving the phone also triggers a check; compare against the step's first frame if that misfires.
+        if (settle.current && active.current) {
+          active.current = false;
+          stopClip().then((clip) => settle.current?.(clip));
+          return;
+        }
+        if (live && !anchor) find(autoTarget);
       }
     }, 250);
     return () => clearInterval(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [photo, cameraError, snapshot, live, autoTarget]);
+  }, [photo, cameraError, snapshot, live, autoTarget, anchor !== null]);
 
   const memoVec = memo ? vectorOf(memo) : null;
 
@@ -318,6 +436,24 @@ export default function CameraStage({
       {snapshot && !photo && (
         // eslint-disable-next-line @next/next/no-img-element
         <img src={snapshot.image} alt={t("Snapshot of your table")} className="media" />
+      )}
+      {anchor && !snapshot && (
+        <svg className="anchor" viewBox={`0 0 ${anchor.width} ${anchor.height}`} preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+          {anchor.items.map((item) => {
+            const dx = (item.patch.x - item.x0) / anchor.scale;
+            const dy = (item.patch.y - item.y0) / anchor.scale;
+            const unit = Math.max(anchor.width, anchor.height) / 100;
+            return (
+              <g key={item.dest ? "dest" : "part"} transform={`translate(${dx} ${dy})`} style={{ opacity: item.seen ? 1 : 0 }}>
+                {item.dest ? (
+                  <DestBox match={item.match} unit={unit} />
+                ) : (
+                  <path d={item.match.path} transform={maskTransform(item.match)} className="mask live" vectorEffect="non-scaling-stroke" />
+                )}
+              </g>
+            );
+          })}
+        </svg>
       )}
       {searching && <span className="scan" aria-hidden="true" />}
       {snapshot && <FoundIt key={snapshot.key} snapshot={snapshot} />}

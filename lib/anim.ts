@@ -84,7 +84,7 @@ async function draw(m: Manual, i: number) {
 
 // Starts drawing the steps right after the plan is ready, so step 1 is usually done before you get there.
 export async function prepareAnimations(m: Manual) {
-  if (m.demo) return; // demos ship their strips in /public/demo
+  if (m.demo || m.mode !== "fix") return; // demos ship their strips; a drawing of an assembly invents how the real product looks
   const keys = m.steps.slice(0, MAX_STEPS).map((_, i) => keyOf(m, i));
   const have = await Promise.all(keys.map(load));
   const todo = keys.map((_, i) => i).filter((i) => !have[i] && !pending.has(keys[i]));
@@ -106,6 +106,7 @@ export function useAnimation(m: Manual | null, i: number) {
   }, []);
   if (!m?.steps[i]) return { image: undefined, drawing: false };
   if (m.demo) return { image: `/demo/anim-${m.demo}-${i + 1}.jpg`, drawing: false };
+  if (m.mode !== "fix") return { image: undefined, drawing: false };
   const key = keyOf(m, i);
   return { image: stored(key), drawing: pending.has(key) };
 }
