@@ -92,13 +92,11 @@ const localize = (m: Manual): Manual => ({
   steps: m.steps.map((s) => ({ ...s, instruction: tr(s.instruction), check: tr(s.check) })),
 });
 
-export function startDemo(kind: Kind = "tower", flow = false) {
+export function startDemo(kind: Kind = "tower") {
   saveManual(localize(kind === "lamp" ? LAMP : TOWER));
-  saveProgress({ ...freshProgress(), flow });
+  saveProgress(freshProgress());
   clearReplay();
 }
-
-export const demoFinal = (kind: Kind | true) => SETS[kind === "lamp" ? "lamp" : "tower"].photos.at(-1)!;
 
 export function demoPhoto(kind: Kind | true, step: number, checking: boolean, triedThisStep: boolean) {
   const set = SETS[kind === "lamp" ? "lamp" : "tower"];

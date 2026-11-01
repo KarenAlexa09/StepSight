@@ -1,5 +1,6 @@
 // "My things": products the person owns, identified once (brand + model) so asking for help later skips the questions.
-export type Thing = { id: number; name: string; model: string; photo?: string };
+// generic: an ordinary unbranded thing (a rubber duck), so no model is expected.
+export type Thing = { id: number; name: string; model: string; photo?: string; generic?: boolean };
 
 const KEY = "stepsight.things";
 const MAX = 40;

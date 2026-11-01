@@ -4,8 +4,7 @@ import { tr, useT } from "../../lib/i18n";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { demoFinal, demoPhoto } from "../../lib/demo";
-import BuildMap, { type MapItem } from "../../components/BuildMap";
+import { demoPhoto } from "../../lib/demo";
 import CameraStage, { type CameraHandle } from "../../components/CameraStage";
 import HelpSheet from "../../components/HelpSheet";
 import SourceTag from "../../components/SourceTag";
@@ -34,21 +33,6 @@ type Phase = "work" | "checking" | "correct" | "fix";
 const partPrompt = (p: Part) => (p.color.trim() ? `${p.color.trim().toLowerCase()} piece` : p.name);
 const kindOf = (s: Step) => s.kind ?? "verify";
 const targetOf = (s: Step) => s.target?.trim() || (s.parts[0] ? partPrompt(s.parts[0]) : "");
-// The map numbers each part by the step that uses it; the first step's base gets "B".
-function mapItems(m: Manual): MapItem[] {
-  const items: MapItem[] = [];
-  const seen = new Set<string>();
-  m.steps.forEach((s, i) => {
-    const prompt = targetOf(s);
-    if (!prompt || seen.has(prompt.toLowerCase())) return;
-    seen.add(prompt.toLowerCase());
-    items.push({ badge: String(i + 1), prompt, text: s.instruction });
-  });
-  const base = m.steps[0]?.motion?.to?.trim();
-  if (base && !seen.has(base.toLowerCase())) items.unshift({ badge: "B", prompt: base, text: tr("Base: everything goes on this") });
-  return items.slice(0, 12);
-}
-
 const partLabel = (p: Part) => `${p.quantity}× ${p.color} ${p.name}`.replace("  ", " ");
 const AUTO_MS = 1600;
 const AUTO_SLOW_MS = 2800;
@@ -103,19 +87,6 @@ export default function BuildPage() {
     const id = setTimeout(() => animReady.current || setWatching(false), 600);
     return () => clearTimeout(id);
   }, [progress?.step]);
-
-  // Demos have no live camera to watch, so Flow plays them on a timer: light up the part, then check.
-  useEffect(() => {
-    if (!manual?.demo || !progress?.flow || !step || kindOf(step) !== "verify") return;
-    if ((manual.prep?.length && !progress.prepDone) || !progress.mapped || (phase !== "work" && phase !== "fix")) return;
-    const lit = setTimeout(() => show(), 700);
-    const check = setTimeout(() => verify(), phase === "work" ? 6500 : 3500);
-    return () => {
-      clearTimeout(lit);
-      clearTimeout(check);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [phase, progress?.step, progress?.prepDone, progress?.mapped, manual]);
 
   useEffect(() => {
     const m = loadManual();
@@ -188,46 +159,9 @@ export default function BuildPage() {
     } catch {}
   }
 
-  // Flow: SAM watches the clip of the hands; if the part clearly ended up on its base, that's the check.
-  // Otherwise Spark looks for how far the build got, so building ahead skips steps; only then the usual one-step check.
-  async function settleCheck(clip?: Blob) {
-    if (!step || !progress || !manual) return;
-    const to = step.motion?.type === "connect" ? step.motion.to?.trim() : "";
-    const passed = (reply: string, skip = 0) =>
-      verify({ done: true, problem: "", fix: "", reply, seen: "", confidence: "high" }, true, skip);
-    setPhase("checking");
-    setStatus(t("Timber is checking your build…"));
-    if (clip && to && targetOf(step)) {
-      try {
-        const form = new FormData();
-        form.append("video", clip, "clip.mp4");
-        form.append("part", targetOf(step));
-        form.append("base", to);
-        const res = await fetch("/api/track", { method: "POST", body: form });
-        const data = await res.json();
-        if (res.ok && data.placed) return passed(t("Solid. Next one."));
-      } catch {}
-    }
-    const rest = manual.steps.slice(progress.step, progress.step + 5);
-    const shot = rest.length > 1 ? camera.current?.capture() : null;
-    if (shot) {
-      try {
-        const res = await fetch("/api/ahead", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ image: shot.image, steps: rest.map((s) => ({ instruction: s.instruction, check: s.check })) }),
-        });
-        const { done } = await res.json();
-        if (res.ok && done > 1) return passed(t("You're ahead of me: I saw {n} steps done.", { n: done }), done - 1);
-        if (res.ok && done === 1) return passed(t("Solid. Next one."));
-      } catch {}
-    }
-    verify(undefined, true);
-  }
-
-  async function verify(known?: Check, force = false, skip = 0) {
+  async function verify() {
     if (!step || !progress) return;
-    if (phase === "checking" && !force) return;
+    if (phase === "checking") return;
     setPhase("checking");
     setPiece(null);
     setStatus(t("Timber is checking your build…"));
@@ -242,34 +176,30 @@ export default function BuildPage() {
       return;
     }
     try {
-      let result = known;
-      if (!result) {
-        const res = await fetch("/api/verify", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            image: shot.image,
-            step: { instruction: step.instruction, check: step.check, parts: step.parts.map(partLabel) },
-            lang: getSettings().lang,
-          }),
-        });
-        result = (await res.json()) as Check;
-        if (!res.ok) throw new Error((result as unknown as { error: string }).error);
-      }
+      const res = await fetch("/api/verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          image: shot.image,
+          step: { instruction: step.instruction, check: step.check, parts: step.parts.map(partLabel) },
+          lang: getSettings().lang,
+        }),
+      });
+      const result: Check = await res.json();
+      if (!res.ok) throw new Error((result as unknown as { error: string }).error);
       setCheck(result);
       setStatus(result.done ? t("Step checked") : t("Needs a fix"));
       if (!result.done) timber.say(result.fix || result.reply);
       if (result.done) {
         thumb(shot.image, 560).then(addReplayFrame);
         const firstTry = !progress.triedThisStep;
-        const xp = (XP_STEP + (firstTry ? XP_FIRST_TRY : 0)) * (skip + 1);
+        const xp = XP_STEP + (firstTry ? XP_FIRST_TRY : 0);
         setEarned({ xp, firstTry });
         const next = {
           ...progress,
-          step: progress.step + skip,
           xp: progress.xp + xp,
-          stars: progress.stars + (firstTry ? skip + 1 : 0),
-          streak: firstTry ? progress.streak + skip + 1 : 0,
+          stars: progress.stars + (firstTry ? 1 : 0),
+          streak: firstTry ? progress.streak + 1 : 0,
         };
         update(next);
         play("success");
@@ -404,14 +334,11 @@ export default function BuildPage() {
 
   const total = manual.steps.length;
   const kind = kindOf(step);
-  const done = kind === "verify" ? () => verify() : completeDo;
+  const done = kind === "verify" ? verify : completeDo;
 
   const hazardous = Boolean(manual.hazard && manual.hazard !== "none");
   const locked = phase === "checking" || phase === "correct" || timber.thinking;
-  const ar = Boolean(progress.flow);
-  const flow = ar && kind === "verify";
-  const showAnim = !ar && watching && phase === "work" && Boolean(anim.image);
-  const upNext = progress.flow ? manual.steps.slice(progress.step + 1, progress.step + 3) : [];
+  const showAnim = watching && phase === "work" && Boolean(anim.image);
 
   if (manual.prep?.length && !progress.prepDone) {
     return (
@@ -463,22 +390,6 @@ export default function BuildPage() {
     );
   }
 
-  const items = progress.flow && !progress.mapped && manual.mode !== "fix" ? mapItems(manual) : [];
-  if (items.length) {
-    return (
-      <BuildMap
-        manual={manual}
-        items={items}
-        photo={manual.demo ? demoPhoto(manual.demo, 0, false, false) : undefined}
-        finished={manual.demo ? demoFinal(manual.demo) : undefined}
-        onStart={() => {
-          update({ ...progress, mapped: true });
-          timber.say(step.instruction);
-        }}
-      />
-    );
-  }
-
   const icon = { viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 2.2, strokeLinecap: "round", strokeLinejoin: "round", "aria-hidden": true } as const;
   const sheetTone = phase === "correct" ? " ok" : phase === "fix" ? " fix" : "";
 
@@ -487,10 +398,8 @@ export default function BuildPage() {
       <div className="c-cam">
         <CameraStage
           ref={camera}
-          live={ar && (phase === "work" || phase === "fix") && Boolean(target)}
+          live={false}
           autoTarget={target}
-          onSettle={flow && (phase === "work" || phase === "fix") ? settleCheck : undefined}
-          anchored={ar}
           resetKey={progress.step}
           // While "Almost." shows, keep the mistake photo; the fixed one only appears on the re-check.
           demo={manual?.demo ? demoPhoto(manual.demo!, progress.step, demoAfter, progress.triedThisStep && phase !== "fix") : undefined}
@@ -526,7 +435,7 @@ export default function BuildPage() {
                 <path d="M6 6l12 12M18 6L6 18" />
               </svg>
             </Link>
-            <span className="c-cam-label">{progress.flow ? t("AR · STEP {n} OF {total}", { n: progress.step + 1, total }) : t("STEP {n} OF {total}", { n: progress.step + 1, total })}</span>
+            <span className="c-cam-label">{t("STEP {n} OF {total}", { n: progress.step + 1, total })}</span>
             <button
               type="button"
               className={`c-glass${timber.listening ? " on" : ""}`}
@@ -543,7 +452,7 @@ export default function BuildPage() {
           </div>
         </div>
 
-        {!showAnim && !ar && phase !== "correct" && (
+        {!showAnim && phase !== "correct" && (
           <div className="c-cam-bottom">
             {anim.image ? (
               <button type="button" className="c-pill" onClick={() => setWatching(true)}>
@@ -634,20 +543,6 @@ export default function BuildPage() {
         )}
 
         <div className="c-grow" />
-        {flow && (phase === "work" || phase === "fix") ? (
-          <>
-            <p className="c-muted" role="status">
-              {t("Hands out when it's on. I'll check by myself.")}
-            </p>
-            {upNext.length > 0 && (
-              <ol className="c-next" aria-label={t("Up next")}>
-                {upNext.map((s) => (
-                  <li key={s.number}>{s.instruction}</li>
-                ))}
-              </ol>
-            )}
-          </>
-        ) : (
         <button
           type="button"
           className={`cta c-btn${phase === "correct" && !held ? " auto" : ""}`}
@@ -671,17 +566,11 @@ export default function BuildPage() {
                     ? t("Check my step")
                     : t("Done")}
         </button>
-        )}
         {phase !== "correct" && (
           <div className="c-sheet-links">
             <button type="button" className="c-link" onClick={() => setHelp(true)} disabled={locked}>
               {t("I'm lost")}
             </button>
-            {flow && (
-              <button type="button" className="c-link" onClick={() => verify()} disabled={locked}>
-                {t("Check now")}
-              </button>
-            )}
             <button type="button" className="c-link" onClick={advance} disabled={step.safety || locked}>
               {step.safety ? t("Safety step") : t("Skip step")}
             </button>

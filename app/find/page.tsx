@@ -46,10 +46,12 @@ export default function FindPage() {
           </div>
         </div>
         <div className="c-chips" style={{ justifyContent: "flex-start" }}>
-          <button type="button" className="c-chip" aria-pressed={live} onClick={() => setLive((v) => !v)} disabled={!target}>
-            {live && <span className="c-live-dot" aria-hidden="true" />}
-            {live ? t("Live") : target ? t("Live") : t("Live (ask first)")}
-          </button>
+          {target && (
+            <button type="button" className="c-chip" aria-pressed={live} onClick={() => setLive((v) => !v)}>
+              {live && <span className="c-live-dot" aria-hidden="true" />}
+              {t("Live")}
+            </button>
+          )}
           <label className="c-chip">
             {t("Photo")}
             <input type="file" accept="image/*" onChange={(e) => e.target.files?.[0] && camera.current?.loadPhoto(e.target.files[0])} />

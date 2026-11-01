@@ -13,11 +13,11 @@ import { fileToShot, thumb } from "../../lib/image";
 import { addThing } from "../../lib/things";
 import { takeIntent, type Intent } from "../../lib/intent";
 import type { Manual, Mode, ReadEvent } from "../../lib/manual";
-import { clearManual, clearReplay, freshProgress, loadManual, loadProgress, saveManual, saveProgress } from "../../lib/progress";
+import { clearManual, clearReplay, freshProgress, loadManual, saveManual, saveProgress } from "../../lib/progress";
 import { getSettings } from "../../lib/settings";
 import type { Turn, Understood } from "../../lib/spark";
 
-type Phase = "understanding" | "ask" | "confirm" | "unclear" | "reading" | "done";
+type Phase = "understanding" | "ask" | "confirm" | "unclear" | "danger" | "reading" | "done";
 type Activity = { text: string; host?: string };
 
 const MAX_QUESTIONS = 4;
@@ -53,7 +53,6 @@ export default function ManualPage() {
   const [options, setOptions] = useState<string[]>([]);
   const [reply, setReply] = useState("");
   const [thinking, setThinking] = useState(false);
-  const [flow, setFlow] = useState(false);
   const cancelled = useRef(false);
   const started = useRef(false);
   const retry = useRef<(() => void) | null>(null);
@@ -107,6 +106,11 @@ export default function ManualPage() {
       setUnderstood(data);
       setThinking(false);
       // "My things" only needs what it is: ask for brand and model once, never build or fix.
+      // Gas, mains electricity, car brakes…: Timber says who to call instead of guiding it.
+      if (data.danger && !next.thing) {
+        timber.say(data.safety);
+        return setPhase("danger");
+      }
       if (next.thing) {
         if (!data.name.trim()) return setPhase("unclear");
         if (data.model.trim() || talk.length) return keep(data, next.image);
@@ -234,7 +238,7 @@ export default function ManualPage() {
   }
 
   const busy = dictation.listening || dictation.transcribing;
-  const shown: Understood = understood ?? { name: "", mode: "build", issue: "", clear: false, ready: false, question: "", options: [], model: "", needsModel: false, query: "" };
+  const shown: Understood = understood ?? { name: "", mode: "build", issue: "", clear: false, ready: false, question: "", options: [], model: "", needsModel: false, query: "", danger: false, safety: "" };
   const asked = chat.filter((turn) => turn.role === "timber").length;
   const question = [...chat].reverse().find((turn) => turn.role === "timber")?.text ?? "";
   const lastYou = [...chat].reverse().find((turn) => turn.role === "you")?.text ?? "";
@@ -413,6 +417,26 @@ export default function ManualPage() {
         </>
       )}
 
+      {phase === "danger" && (
+        <>
+          <header className="c-top">{back}</header>
+          <div className="c-ask">
+            <Timber pose="oops" size={72} />
+            <h1 className="c-h1">{t("This one is for a pro")}</h1>
+          </div>
+          <p className="c-safety" role="alert">
+            {shown.safety}
+          </p>
+          <p className="c-muted">{t("I won't guide this one: a mistake here can really hurt you. I'm happy to help with something else.")}</p>
+          <div className="c-grow" />
+          <div className="c-sticky">
+            <Link className="c-btn" href="/">
+              {t("Back home")}
+            </Link>
+          </div>
+        </>
+      )}
+
       {phase === "unclear" && (
         <>
           <header className="c-top">{back}</header>
@@ -423,7 +447,7 @@ export default function ManualPage() {
           {/* eslint-disable-next-line @next/next/no-img-element */}
           {intent.image && !error && <img className="wiz-photo blur" src={intent.image} alt={t("Your photo, hard to see")} />}
           <p className="c-muted" role="alert">
-            {error || t("Get a bit closer and add more light, or just tell me what it is.")}
+            {error || (intent.image ? t("Get a bit closer and add more light, or just tell me what it is.") : t("Tell me which object it is and what you want to do with it."))}
           </p>
           <div className="c-stage">{busy && listening}</div>
           {error && retry.current && (
@@ -508,18 +532,6 @@ export default function ManualPage() {
             <Timber pose="thumbs" size={72} />
           </div>
           <SourceTag manual={manual} />
-          <div className="c-pace" role="group" aria-label={t("How do you want to do it?")}>
-            <button type="button" aria-pressed={!flow} onClick={() => setFlow(false)}>
-              <b>{t("Step by step")}</b>
-              <span>{t("I show each step, you do it, I check it.")}</span>
-            </button>
-            <button type="button" aria-pressed={flow} onClick={() => setFlow(true)}>
-              <b>
-                {t("AR")} <i>{t("NEW")}</i>
-              </b>
-              <span>{t("Live on your camera: I point at each part as you go and check by myself.")}</span>
-            </button>
-          </div>
           <ol className="c-steps">
             {manual.steps.map((step, i) => (
               <li key={step.number} style={{ animationDelay: `${i * 120}ms` }}>
@@ -542,7 +554,7 @@ export default function ManualPage() {
                 {t("Check parts")}
               </Link>
             )}
-            <Link className="c-btn" href="/build" onClick={() => saveProgress({ ...loadProgress(), flow })}>
+            <Link className="c-btn" href="/build">
               {t("Start")}
               <svg {...svg} width="20" height="20" strokeWidth={2.4}>
                 <path d="M5 12h14M13 6l6 6-6 6" />
