@@ -1196,9 +1196,47 @@ html.slow .c-anim-frame img {
   transition: opacity 0.2s;
 }
 
-.mask.live {
-  fill-opacity: 0.3;
+.stage .anchor .ar-fill {
+  fill: var(--highlighter);
+  fill-opacity: 0.12;
+}
+
+.stage .anchor .ar-corners {
+  fill: none;
+  stroke: var(--highlighter);
+  stroke-width: 5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  filter: drop-shadow(0 0 4px rgba(0, 0, 0, 0.5));
+}
+
+.stage .anchor .ar-link {
+  stroke: var(--highlighter);
   stroke-width: 3;
+  stroke-dasharray: 2 9;
+  stroke-linecap: round;
+  animation: ar-dash 0.8s linear infinite;
+}
+
+@keyframes ar-dash {
+  to {
+    stroke-dashoffset: -22;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .stage .anchor .ar-link {
+    animation: none;
+  }
+}
+
+.stage .anchor .ar-label {
+  fill: var(--highlighter);
+  font-family: var(--font-sans), sans-serif;
+  font-weight: 700;
+  paint-order: stroke;
+  stroke: rgba(20, 20, 20, 0.75);
+  stroke-width: 6px;
 }
 
 .c-flow-tag {
@@ -1210,6 +1248,52 @@ html.slow .c-anim-frame img {
   color: var(--highlighter);
   font: 12px var(--font-mono), monospace;
   vertical-align: 1px;
+}
+
+.c-pace {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.c-pace button {
+  min-height: 104px;
+  padding: 14px;
+  border: 2px solid #e6e3dc;
+  border-radius: 18px;
+  background: #fff;
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  cursor: pointer;
+}
+
+.c-pace button[aria-pressed="true"] {
+  border-color: var(--ink);
+  box-shadow: 4px 4px 0 var(--highlighter);
+}
+
+.c-pace b {
+  font-size: 16px;
+}
+
+.c-pace i {
+  margin-left: 4px;
+  padding: 2px 6px;
+  border-radius: 999px;
+  background: var(--ink);
+  color: var(--highlighter);
+  font: normal 10px var(--font-mono), monospace;
+  vertical-align: 2px;
+}
+
+.c-pace span {
+  font-size: 13px;
+  line-height: 18px;
+  color: var(--pencil);
 }
 
 .c-next {
@@ -1823,7 +1907,15 @@ html.slow .c-anim-frame img {
 /* notices inside the camera sit above the overlapping sheet */
 .c-cam .stage .hint,
 .c-cam .stage .steady {
+  top: auto;
   bottom: 40px;
+  transform: translateX(-50%);
+  padding: 8px 14px;
+  border: none;
+  border-radius: 999px;
+  box-shadow: none;
+  background: rgba(255, 255, 255, 0.92);
+  font: 600 14px var(--font-sans), sans-serif;
 }
 
 /* ---------- before you start ---------- */

@@ -108,7 +108,7 @@ export default function BuildPage() {
   useEffect(() => {
     if (!manual?.demo || !progress?.flow || !step || kindOf(step) !== "verify") return;
     if ((manual.prep?.length && !progress.prepDone) || !progress.mapped || (phase !== "work" && phase !== "fix")) return;
-    const lit = phase === "work" ? setTimeout(() => show(), 700) : undefined;
+    const lit = setTimeout(() => show(), 700);
     const check = setTimeout(() => verify(), phase === "work" ? 6500 : 3500);
     return () => {
       clearTimeout(lit);
@@ -408,8 +408,9 @@ export default function BuildPage() {
 
   const hazardous = Boolean(manual.hazard && manual.hazard !== "none");
   const locked = phase === "checking" || phase === "correct" || timber.thinking;
-  const flow = Boolean(progress.flow) && kind === "verify";
-  const showAnim = !flow && watching && phase === "work" && Boolean(anim.image);
+  const ar = Boolean(progress.flow);
+  const flow = ar && kind === "verify";
+  const showAnim = !ar && watching && phase === "work" && Boolean(anim.image);
   const upNext = progress.flow ? manual.steps.slice(progress.step + 1, progress.step + 3) : [];
 
   if (manual.prep?.length && !progress.prepDone) {
@@ -486,10 +487,10 @@ export default function BuildPage() {
       <div className="c-cam">
         <CameraStage
           ref={camera}
-          live={flow && phase === "work"}
+          live={ar && (phase === "work" || phase === "fix") && Boolean(target)}
           autoTarget={target}
           onSettle={flow && (phase === "work" || phase === "fix") ? settleCheck : undefined}
-          anchored={flow}
+          anchored={ar}
           resetKey={progress.step}
           // While "Almost." shows, keep the mistake photo; the fixed one only appears on the re-check.
           demo={manual?.demo ? demoPhoto(manual.demo!, progress.step, demoAfter, progress.triedThisStep && phase !== "fix") : undefined}
@@ -525,7 +526,7 @@ export default function BuildPage() {
                 <path d="M6 6l12 12M18 6L6 18" />
               </svg>
             </Link>
-            <span className="c-cam-label">{progress.flow ? t("FLOW · STEP {n} OF {total}", { n: progress.step + 1, total }) : t("STEP {n} OF {total}", { n: progress.step + 1, total })}</span>
+            <span className="c-cam-label">{progress.flow ? t("AR · STEP {n} OF {total}", { n: progress.step + 1, total }) : t("STEP {n} OF {total}", { n: progress.step + 1, total })}</span>
             <button
               type="button"
               className={`c-glass${timber.listening ? " on" : ""}`}
@@ -542,7 +543,7 @@ export default function BuildPage() {
           </div>
         </div>
 
-        {!showAnim && !flow && phase !== "correct" && (
+        {!showAnim && !ar && phase !== "correct" && (
           <div className="c-cam-bottom">
             {anim.image ? (
               <button type="button" className="c-pill" onClick={() => setWatching(true)}>

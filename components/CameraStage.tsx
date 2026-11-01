@@ -32,9 +32,9 @@ const PARTICLES: [number, number, string][] = [
 const DIRECTIONS: Record<string, [number, number]> = { up: [0, -1], down: [0, 1], left: [-1, 0], right: [1, 0] };
 
 // Flow: after "grab this one", the camera goes live again and these follow the part and its base.
-type Anchor = { width: number; height: number; scale: number; items: { match: Match; dest: boolean; patch: Patch; x0: number; y0: number; seen: boolean }[] };
+type Anchor = { width: number; height: number; scale: number; label: string; lostAt: number; items: { match: Match; dest: boolean; patch: Patch; x0: number; y0: number; seen: boolean }[] };
 
-const ANCHOR_AFTER_MS = 2200;
+const LOST_MS = 2500;
 const LOST = 45;
 const CLIP_MAX_MS = 8000;
 const CLIP_TYPE = () => (typeof MediaRecorder === "undefined" ? "" : (["video/mp4;codecs=avc1", "video/mp4"].find((t) => MediaRecorder.isTypeSupported(t)) ?? ""));
@@ -190,39 +190,37 @@ export default function CameraStage({
     active.current = false;
   }, [resetKey]);
 
+  // The live video, or the photo in demos and uploads (where nothing moves, so the outline just stays put).
   function trackFrame() {
-    const video = videoRef.current;
-    if (!video?.videoWidth) return null;
-    const height = Math.round((TRACK_WIDTH * video.videoHeight) / video.videoWidth);
+    const img = photo ? photoRef.current : null;
+    const video = img ? null : videoRef.current;
+    const [w, h] = img ? [img.naturalWidth, img.naturalHeight] : [video?.videoWidth ?? 0, video?.videoHeight ?? 0];
+    if (!w || !h) return null;
+    const height = Math.round((TRACK_WIDTH * h) / w);
     if (!tracker.current || tracker.current.canvas.height !== height) {
       const canvas = document.createElement("canvas");
       canvas.width = TRACK_WIDTH;
       canvas.height = height;
       tracker.current = canvas.getContext("2d", { willReadFrequently: true });
     }
-    tracker.current!.drawImage(video, 0, 0, TRACK_WIDTH, height);
+    tracker.current!.drawImage((img ?? video)!, 0, 0, TRACK_WIDTH, height);
     return toGray(tracker.current!.getImageData(0, 0, TRACK_WIDTH, height).data, TRACK_WIDTH, height);
   }
 
-  // Swap the frozen "grab this one" picture for live video with outlines that follow the parts.
-  useEffect(() => {
-    if (!anchored || photo || !snapshot) return;
-    const id = setTimeout(() => {
-      const frame = trackFrame();
-      if (!frame) return;
-      const scale = TRACK_WIDTH / snapshot.width;
-      const items = [{ match: snapshot.matches[0], dest: false }, ...(snapshot.dest ? [{ match: snapshot.dest, dest: true }] : [])].flatMap(({ match, dest }) => {
-        const b = match.bounds;
-        const patch = cut(frame, { left: b.left * scale, top: b.top * scale, right: b.right * scale, bottom: b.bottom * scale });
-        return patch ? [{ match, dest, patch, x0: patch.x, y0: patch.y, seen: true }] : [];
-      });
-      if (!items.length) return;
-      setAnchor({ width: snapshot.width, height: snapshot.height, scale, items });
-      setSnapshot(null);
-    }, ANCHOR_AFTER_MS);
-    return () => clearTimeout(id);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [anchored, photo, snapshot]);
+  // AR: no frozen picture; outlines go straight onto the live video and follow the parts.
+  function startAnchor(snap: Snapshot) {
+    const frame = trackFrame();
+    if (!frame) return false;
+    const scale = TRACK_WIDTH / snap.width;
+    const items = [{ match: snap.matches[0], dest: false }, ...(snap.dest ? [{ match: snap.dest, dest: true }] : [])].flatMap(({ match, dest }) => {
+      const b = match.bounds;
+      const patch = cut(frame, { left: b.left * scale, top: b.top * scale, right: b.right * scale, bottom: b.bottom * scale });
+      return patch ? [{ match, dest, patch, x0: patch.x, y0: patch.y, seen: true }] : [];
+    });
+    if (!items.length) return false;
+    setAnchor({ width: snap.width, height: snap.height, scale, label: snap.label, lostAt: 0, items });
+    return true;
+  }
 
   useEffect(() => {
     if (!anchor) return;
@@ -239,6 +237,10 @@ export default function CameraStage({
             item.patch.y = found.y;
           }
         }
+        const lost = !a.items[0].seen;
+        if (!lost) a.lostAt = 0;
+        else if (!a.lostAt) a.lostAt = Date.now();
+        else if (Date.now() - a.lostAt > LOST_MS) return null;
         return { ...a };
       });
     }, 100);
@@ -275,6 +277,7 @@ export default function CameraStage({
   useEffect(() => {
     if (!demo) return;
     setSnapshot(null);
+    setAnchor(null);
     setPhoto(demo);
   }, [demo]);
 
@@ -345,9 +348,13 @@ export default function CameraStage({
         key: Date.now(),
         reference,
       };
-      setSnapshot(next);
       setMemo(next);
       onStatus(t("Found it"));
+      if (anchored && startAnchor(next)) {
+        play("boop");
+        return data.matches.length;
+      }
+      setSnapshot(next);
       return data.matches.length;
     } catch (error) {
       onStatus(error instanceof Error && error.message ? t(error.message) : t("Something went wrong"));
@@ -445,14 +452,20 @@ export default function CameraStage({
             const unit = Math.max(anchor.width, anchor.height) / 100;
             return (
               <g key={item.dest ? "dest" : "part"} transform={`translate(${dx} ${dy})`} style={{ opacity: item.seen ? 1 : 0 }}>
-                {item.dest ? (
-                  <DestBox match={item.match} unit={unit} />
-                ) : (
-                  <path d={item.match.path} transform={maskTransform(item.match)} className="mask live" vectorEffect="non-scaling-stroke" />
-                )}
+                {item.dest ? <DestBox match={item.match} unit={unit} /> : <Brackets match={item.match} unit={unit} label={anchor.label} below={item.match.bounds.top < anchor.height * 0.2} />}
               </g>
             );
           })}
+          {anchor.items.length > 1 && anchor.items.every((item) => item.seen) && (
+            <line
+              className="ar-link"
+              x1={center(anchor.items[0].match)[0] + (anchor.items[0].patch.x - anchor.items[0].x0) / anchor.scale}
+              y1={center(anchor.items[0].match)[1] + (anchor.items[0].patch.y - anchor.items[0].y0) / anchor.scale}
+              x2={center(anchor.items[1].match)[0] + (anchor.items[1].patch.x - anchor.items[1].x0) / anchor.scale}
+              y2={center(anchor.items[1].match)[1] + (anchor.items[1].patch.y - anchor.items[1].y0) / anchor.scale}
+              vectorEffect="non-scaling-stroke"
+            />
+          )}
         </svg>
       )}
       {searching && <span className="scan" aria-hidden="true" />}
@@ -462,7 +475,7 @@ export default function CameraStage({
           {photo ? t("Close") : t("Back to camera")}
         </button>
       )}
-      {memo && !snapshot && (
+      {memo && !snapshot && !anchored && (
         <button
           type="button"
           className="memo"
@@ -504,6 +517,26 @@ export default function CameraStage({
         </label>
       )}
     </div>
+  );
+}
+
+// AR corner brackets around the part, with its label; steadier to look at than a raw mask edge.
+function Brackets({ match, unit, label, below }: { match: Match; unit: number; label: string; below: boolean }) {
+  const { left, top, right, bottom } = match.bounds;
+  const pad = unit;
+  const [x1, y1, x2, y2] = [left - pad, top - pad, right + pad, bottom + pad];
+  const arm = Math.max(unit * 3, Math.min(x2 - x1, y2 - y1) * 0.25);
+  const corners = `M${x1} ${y1 + arm}V${y1}H${x1 + arm}M${x2 - arm} ${y1}H${x2}V${y1 + arm}M${x2} ${y2 - arm}V${y2}H${x2 - arm}M${x1 + arm} ${y2}H${x1}V${y2 - arm}`;
+  return (
+    <>
+      <rect className="ar-fill" x={x1} y={y1} width={x2 - x1} height={y2 - y1} rx={unit * 2} />
+      <path className="ar-corners" d={corners} vectorEffect="non-scaling-stroke" />
+      {label && (
+        <text className="ar-label" x={x1} y={below ? y2 + unit * 5 : y1 - unit * 1.5} fontSize={unit * 4}>
+          {label}
+        </text>
+      )}
+    </>
   );
 }
 
