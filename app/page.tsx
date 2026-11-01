@@ -13,7 +13,6 @@ import type { Manual } from "../lib/manual";
 import { level, loadManual, loadProgress, type Progress } from "../lib/progress";
 import { setSettings, useSettings } from "../lib/settings";
 
-const AUTO_SEND_MS = 1600;
 
 const svg = { viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 2, strokeLinecap: "round", strokeLinejoin: "round", "aria-hidden": true } as const;
 
@@ -26,16 +25,13 @@ export default function Home() {
   const [text, setText] = useState("");
   const [typing, setTyping] = useState(false);
   const [error, setError] = useState("");
-  const [pending, setPending] = useState(false);
   const [opening, setOpening] = useState(false);
   const input = useRef<HTMLInputElement>(null);
-  const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   useEffect(() => {
     setManual(loadManual());
     setProgress(loadProgress());
     if (location.hash === "#ask") setTyping(true);
-    return () => clearTimeout(timer.current);
   }, []);
 
   useEffect(() => {
@@ -43,7 +39,6 @@ export default function Home() {
   }, [typing]);
 
   function go(intent: Intent) {
-    clearTimeout(timer.current);
     sendIntent(intent);
     router.push("/manual");
   }
@@ -52,18 +47,11 @@ export default function Home() {
     (said) => {
       setError("");
       setText(said);
-      setPending(true);
-      timer.current = setTimeout(() => go({ text: said }), AUTO_SEND_MS);
+      go({ text: said });
     },
     setError,
     8000,
   );
-
-  function edit() {
-    clearTimeout(timer.current);
-    setPending(false);
-    setTyping(true);
-  }
 
   function onSubmit(event: FormEvent) {
     event.preventDefault();
@@ -122,18 +110,6 @@ export default function Home() {
             </button>
           )}
         </div>
-      ) : pending ? (
-        <div className="c-stage" aria-live="polite">
-          <p className="c-live">{text}</p>
-          <div className="c-chips">
-            <button type="button" className="c-chip" onClick={edit}>
-              {t("Edit")}
-            </button>
-            <button type="button" className="c-chip" onClick={() => go({ text })}>
-              {t("Send now")}
-            </button>
-          </div>
-        </div>
       ) : (
         <>
           <div className="c-home-actions">
@@ -188,7 +164,7 @@ export default function Home() {
 
       <div className="c-grow" />
 
-      {!busy && !pending && (
+      {!busy && (
         <>
           {manual && (
             <Link href={finished ? "/done" : "/build"} className="c-resume">
@@ -235,7 +211,7 @@ export default function Home() {
                 router.push("/build");
               }}
             >
-              {t("Try Flow")}
+              {t("Try AR")}
             </button>
           </div>
         </>

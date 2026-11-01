@@ -508,17 +508,18 @@ export default function ManualPage() {
             <Timber pose="thumbs" size={72} />
           </div>
           <SourceTag manual={manual} />
-          <div className="c-seg" role="group" aria-label={t("Pace")}>
+          <div className="c-pace" role="group" aria-label={t("How do you want to do it?")}>
             <button type="button" aria-pressed={!flow} onClick={() => setFlow(false)}>
-              {t("Step by step")}
+              <b>{t("Step by step")}</b>
+              <span>{t("I show each step, you do it, I check it.")}</span>
             </button>
             <button type="button" aria-pressed={flow} onClick={() => setFlow(true)}>
-              {t("Flow")}
+              <b>
+                {t("AR")} <i>{t("NEW")}</i>
+              </b>
+              <span>{t("Live on your camera: I point at each part as you go and check by myself.")}</span>
             </button>
           </div>
-          <p className="c-muted" style={{ fontSize: 14 }}>
-            {flow ? t("Just do it. I light up the part and check by myself when your hands leave.") : t("One step at a time: I show it, you do it, I check it.")}
-          </p>
           <ol className="c-steps">
             {manual.steps.map((step, i) => (
               <li key={step.number} style={{ animationDelay: `${i * 120}ms` }}>
