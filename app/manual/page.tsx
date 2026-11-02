@@ -56,6 +56,8 @@ export default function ManualPage() {
   const cancelled = useRef(false);
   const started = useRef(false);
   const retry = useRef<(() => void) | null>(null);
+  const looked = useRef("");
+  const [lookingUp, setLookingUp] = useState(false);
 
   useEffect(() => {
     cancelled.current = false;
@@ -96,13 +98,25 @@ export default function ManualPage() {
     retry.current = null;
     const said = next.text?.trim() ?? "";
     if (isLink(said)) return read({ url: said }, "build", said);
-    if (talk.length) setThinking(true);
+    if (talk.length && phase === "ask") setThinking(true);
     else setPhase("understanding");
     try {
       const text = next.thing && !talk.length ? "I want to save this product to my things. Tell me its brand and model; no task needed." : next.text;
       const res = await post("/api/understand", { ...next, text, history: talk.slice(0, -1), lang: getSettings().lang });
       const data: Understood & { error?: string } = await res.json();
       if (!res.ok) throw new Error(data.error);
+      // Before asking for the brand, search the web for the product in the newest photo, then just ask "is it this one?".
+      const photo = next.label ?? next.image;
+      let guess = "";
+      if (!next.thing && !data.danger && !data.ready && data.needsModel && !data.model.trim() && photo && looked.current !== photo) {
+        looked.current = photo;
+        setLookingUp(true);
+        const found = await post("/api/identify", { image: photo, lang: getSettings().lang })
+          .then((r) => (r.ok ? (r.json() as Promise<{ model: string }>) : null))
+          .catch(() => null);
+        setLookingUp(false);
+        guess = found?.model.trim() ?? "";
+      }
       setUnderstood(data);
       setThinking(false);
       // "My things" only needs what it is: ask for brand and model once, never build or fix.
@@ -123,7 +137,10 @@ export default function ManualPage() {
         return;
       }
       const asked = talk.filter((turn) => turn.role === "timber").length;
-      const question = data.question || (!data.ready && data.needsModel && !data.model.trim() ? tr("What brand and model is it? A photo of the label works too.") : "");
+      const question = guess
+        ? tr("Looks like a {model}. Is that right?", { model: guess })
+        : data.question || (!data.ready && data.needsModel && !data.model.trim() ? tr("What brand and model is it? A photo of the label works too.") : "");
+      if (guess) data.options = [tr("Yes, that's it"), tr("No, it's another one")];
       const asking = !data.ready && question && asked < MAX_QUESTIONS;
       if (!asking && (!data.clear || !data.name.trim())) return setPhase("unclear");
       if (asking) {
@@ -150,7 +167,7 @@ export default function ManualPage() {
     setReply("");
     const talk: Turn[] = [...chat, { role: "you", text: said }];
     setChat(talk);
-    run({ image: intent.image, text: said, thing: intent.thing }, talk);
+    run({ ...intent, text: said }, talk);
   }
 
   async function keep(u: Understood, image?: string) {
@@ -217,11 +234,12 @@ export default function ManualPage() {
     if (!file) return;
     try {
       const image = (await fileToShot(file)).image;
-      if (phase !== "ask") return run({ image });
+      if (phase !== "ask" && !chat.length) return run({ image });
       const talk: Turn[] = [...chat, { role: "you", text: "(sent a photo)" }];
       setChat(talk);
       setOptions([]);
-      run({ image, text: "" }, talk);
+      // Keep the first photo: the new one is usually the label of the same thing.
+      run(intent.image ? { ...intent, label: image, text: "" } : { ...intent, image, text: "" }, talk);
     } catch {
       setError(t("Couldn't open that photo."));
     }
@@ -284,7 +302,7 @@ export default function ManualPage() {
           <header className="c-top">{back}</header>
           <div className="c-stage" role="status">
             <Timber pose="think" size={96} />
-            <p className="c-live wait">{t("Taking a look…")}</p>
+            <p className="c-live wait">{t(lookingUp ? "Searching the web for the model…" : "Taking a look…")}</p>
             <span className="c-dots" aria-hidden="true"><i /><i /><i /></span>
           </div>
         </>

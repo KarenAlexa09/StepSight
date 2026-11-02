@@ -1,16 +1,9 @@
 <p align="center">
-  <img src="public/mascot/wave.webp" width="120" alt="Timber the beaver waving">
-</p>
-
-<h1 align="center">StepSight</h1>
-
-<p align="center">
-  <b>A camera guide that finds the real manual, highlights the exact part and checks every step before you move on.</b><br>
-  Meet Timber, a beaver who builds and fixes things with you, in English or Spanish.
+  <img src="docs/readme/hero.jpg" alt="StepSight: your manual can't see you, Timber can. Two phone screens: the red brick highlighted on the camera, and a blue brick caught in the wrong spot">
 </p>
 
 <p align="center">
-  <a href="https://stepsight.vercel.app"><b>Try it live</b></a> ·
+  <a href="https://stepsight.vercel.app"><b>▶ Try it live</b></a> ·
   <a href="#demo-video">Demo video</a> ·
   <a href="#how-timber-works">How it works</a> ·
   <a href="#tested-not-guessed">Test results</a> ·
@@ -22,12 +15,37 @@
   <img alt="SAM 3.1" src="https://img.shields.io/badge/Meta-SAM%203.1-0866FF">
   <img alt="Muse Image" src="https://img.shields.io/badge/Meta-Muse%20Image-0866FF">
   <img alt="Muse Voice Transcribe" src="https://img.shields.io/badge/Meta-Muse%20Voice%20Transcribe-0866FF">
-  <img alt="Next.js 16" src="https://img.shields.io/badge/Next.js-16-141414">
+  <img alt="English and Spanish" src="https://img.shields.io/badge/speaks-EN%20%C2%B7%20ES-E4FF3A?labelColor=141414">
 </p>
 
-<p align="center">
-  <img src="docs/readme/flow.png" alt="Timber asks for the exact model, finds the official LEGO manual, highlights the red brick on the camera and catches a blue brick placed in the wrong spot">
-</p>
+<h3 align="center">A chatbot tells you how. StepSight watches you do it.</h3>
+
+<table align="center">
+  <tr>
+    <td align="center"><b>4</b><br>Meta models working together</td>
+    <td align="center"><b>57 / 57</b><br>conversations understood</td>
+    <td align="center"><b>96 / 96</b><br>step checks and voice commands</td>
+    <td align="center"><b>0</b><br>dangerous jobs guided</td>
+  </tr>
+</table>
+
+<table>
+  <tr>
+    <td width="320" valign="top"><img src="docs/readme/demo.gif" width="300" alt="The demo running: Timber highlights the red brick, catches the blue brick in the wrong spot and finishes with the build replay"></td>
+    <td valign="top">
+
+### What you're watching
+
+1. **You ask, Timber finds the manual.** Say, type or show what you need; Timber asks for the exact model, then finds the official manual on the web.
+2. **The exact part lights up.** SAM 3.1 cuts the red brick out of your own camera and flies it to where it goes: *"grab this one!"*, *"CLICK!"*
+3. **Every step is checked.** Muse Spark looks at a photo of your step. The blue brick beside the red one? *"Almost."*, with what to fix and a close-up of the piece.
+4. **You built it.** A stop-motion replay of your build, ready to share as a GIF.
+
+No camera or bricks needed: open [stepsight.vercel.app](https://stepsight.vercel.app) and tap **Try the demo**.
+
+  </td>
+  </tr>
+</table>
 
 ## The problem
 
@@ -36,6 +54,10 @@ Manuals are dense, generic and often in the wrong language. People stare at page
 **StepSight watches you do it.** You say what you need, it finds the manual for your exact model, points at the part on your own table and checks your work after every step.
 
 ## What makes it different
+
+<p align="center">
+  <img src="docs/readme/flow.png" alt="Timber asks for the exact model, finds the official LEGO manual, highlights the red brick on the camera and catches a blue brick placed in the wrong spot">
+</p>
 
 | | A chatbot | StepSight |
 | --- | --- | --- |

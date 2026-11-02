@@ -382,4 +382,7 @@ export const ES: Record<string, string> = {
   "Build it again": "Volver a armar",
   "Fix it again": "Volver a arreglar",
   "This project wasn't saved with its manual": "Este proyecto no se guardó con su manual",
+  "Looks like a {model}. Is that right?": "Parece un {model}. ¿Es ese?",
+  "Yes, that's it": "Sí, es ese",
+  "No, it's another one": "No, es otro",
 };
