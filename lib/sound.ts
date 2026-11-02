@@ -25,7 +25,13 @@ function audio() {
   return ctx;
 }
 
-if (typeof window !== "undefined") window.addEventListener("pointerdown", () => audio(), { once: true });
+// iPhone: Web Audio starts only inside a real tap (touchend or click; a touch pointerdown doesn't count), it is
+// suspended again after calls or other apps, and it follows the silent switch unless the session is "playback".
+if (typeof window !== "undefined") {
+  const session = (navigator as Navigator & { audioSession?: { type: string } }).audioSession;
+  if (session) session.type = "playback";
+  for (const event of ["pointerdown", "touchend", "click"]) window.addEventListener(event, () => audio(), { passive: true });
+}
 
 export const onSound = (listener: (label: string) => void) => {
   listeners.add(listener);

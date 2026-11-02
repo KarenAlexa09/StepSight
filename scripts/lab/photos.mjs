@@ -12,6 +12,9 @@ const PHOTOS = {
   "bike-chain": "Close-up of a bicycle's front gears where the chain has fallen off the chainring and hangs loose. A garage floor in the background.",
   "rubber-duck": "A plain yellow rubber bath duck sitting on the edge of a white bathtub, no logos and no text.",
   "watch-side": "Side view of a smartwatch with a gold aluminum case and a light pink sport band, held in a hand over a pink fleece blanket; the round digital crown and the flat oval side button below it are visible on the right edge. No logos.",
+  "clock-front": "A simple round white wall clock with black hands and numbers, lying face up on a kitchen table; the second hand is stuck. No logos and no text besides the numbers.",
+  "clock-back": "The back of a round white plastic wall clock lying face down on a table, showing the battery compartment and a small white sticker that clearly reads: IKEA  TROMMA  Made in China.",
+  "sticker-only": "Extreme close-up of a small white product sticker on flat white plastic, filling the frame; it clearly reads: IKEA  TROMMA  Made in China. Nothing else is visible.",
   "headphones-label":
     "Close-up of the inside of a black over-ear headphone headband, with a small printed label that clearly reads: SONY  Model: WH-1000XM4.",
 };

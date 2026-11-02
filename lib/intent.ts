@@ -1,4 +1,4 @@
-export type Intent = { text?: string; image?: string; thing?: boolean };
+export type Intent = { text?: string; image?: string; label?: string; thing?: boolean };
 
 const KEY = "stepsight.intent";
 

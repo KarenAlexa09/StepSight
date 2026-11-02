@@ -79,7 +79,7 @@ export type Understood = {
   pro: string;
 };
 
-export async function understand(said: string, image?: string, history: Turn[] = [], lang: Lang = "en"): Promise<Understood> {
+export async function understand(said: string, image?: string, history: Turn[] = [], lang: Lang = "en", label?: string): Promise<Understood> {
   const talk = history.map((turn) => `${turn.role === "you" ? "Person" : "Timber"}: ${turn.text}`).join("\n");
   const data = await ask<Understood>(
     [
@@ -108,10 +108,11 @@ export async function understand(said: string, image?: string, history: Turn[] =
           "options are up to 4 short likely answers (for a missing model offer likely brands, not tasks). When ready, question is empty and options is empty. " +
           "query: a web search query in English for the best guide, built from the whole conversation: brand, model, product and task, e.g. 'Sony WH-1000XM4 headphones clean ear pads'; add 'generic' if model is 'generic'; max 100 characters. " +
           `Write name, question and options in ${SPEAK[lang]}; keep brand and model names exactly as they are; query stays in English.` +
+          (label ? "\nThere are two photos: the first shows the object, the second one they sent later (often its label or back). Use both." : "") +
           (talk ? `\nConversation so far:\n${talk}` : "") +
           (said ? `\nThe person just said: "${said}"` : ""),
       },
-      ...(image ? [{ type: "input_image", image_url: image }] : []),
+      ...[image, label].filter(Boolean).map((url) => ({ type: "input_image", image_url: url })),
     ],
     "understand",
     {
