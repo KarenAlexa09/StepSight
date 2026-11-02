@@ -5,13 +5,13 @@ import { speak } from "../../../lib/voice";
 export async function POST(req: Request) {
   const blocked = limited(req);
   if (blocked) return blocked;
-  const { text } = await req.json().catch(() => ({}));
+  const { text, lang } = await req.json().catch(() => ({}));
   if (typeof text !== "string" || !text.trim() || text.length > 400) {
     return Response.json({ error: "Send up to 400 characters." }, { status: 400 });
   }
 
   try {
-    const audio = await speak(text.trim());
+    const audio = await speak(text.trim(), lang === "es" ? "es" : "en");
     return new Response(audio.body, { headers: { "Content-Type": "audio/mpeg" } });
   } catch (error) {
     console.error(error);

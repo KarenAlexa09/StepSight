@@ -23,6 +23,9 @@ export async function POST(req: Request) {
   try {
     let matches = await segment(image, prompt.trim());
     let via = "sam";
+    // SAM finds "blue brick" but not "blue 2x2 brick": retry without sizes before asking Spark.
+    const plain = prompt.replace(/\b\d+\s*[x×]\s*\d+\b/gi, "").replace(/\s+/g, " ").trim();
+    if (matches.length === 0 && plain && plain !== prompt.trim()) matches = await segment(image, plain);
     // SAM misses small things in busy scenes; Muse Spark finds the area, then SAM cuts it out.
     if (matches.length === 0 && isSize(width) && isSize(height)) {
       const box = await locate(image, { width, height }, prompt.trim());

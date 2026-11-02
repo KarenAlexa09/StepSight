@@ -12,7 +12,11 @@ export async function POST(req: Request) {
 
   const context =
     step && isText(step.instruction, 500) && Array.isArray(step.parts)
-      ? { instruction: step.instruction, parts: step.parts.filter((p: unknown) => isText(p, 100)).slice(0, 20) }
+      ? {
+          instruction: step.instruction,
+          parts: step.parts.filter((p: unknown) => isText(p, 100)).slice(0, 20),
+          ...(Number.isInteger(step.number) && Number.isInteger(step.total) && { number: step.number, total: step.total }),
+        }
       : undefined;
 
   try {

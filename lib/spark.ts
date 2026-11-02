@@ -36,7 +36,10 @@ export async function locate(
     [
       {
         type: "input_text",
-        text: `The image is ${size.width}x${size.height} pixels. Find the ${target}. If it's there, return box as [x1, y1, x2, y2] in pixels around the best match.`,
+        text:
+          `The image is ${size.width}x${size.height} pixels. Find the ${target}. ` +
+          "found is true only if you can clearly see that exact part; if it is hidden, cut off, too blurry or you would be guessing, found is false. " +
+          "If found, return box as [x1, y1, x2, y2] in pixels tight around it.",
       },
       { type: "input_image", image_url: image },
     ],
@@ -73,6 +76,7 @@ export type Understood = {
   query: string;
   danger: boolean;
   safety: string;
+  pro: string;
 };
 
 export async function understand(said: string, image?: string, history: Turn[] = [], lang: Lang = "en"): Promise<Understood> {
@@ -91,6 +95,7 @@ export async function understand(said: string, image?: string, history: Turn[] =
           "danger: true only when doing it yourself is genuinely dangerous for a beginner or legally needs a professional: gas leaks or opening gas appliances, the electrical panel, breakers or mains wiring, car brakes, airbags or steering, " +
           "the inside of microwaves, TVs or other high-voltage parts, roofs or heights, structural walls. Not for ordinary tasks done with care (changing a bulb with the lamp unplugged, cleaning, assembling furniture, a bike). " +
           `If danger is true, ready is false, question and options are empty, and safety is one or two short, calm sentences in ${SPEAK[lang]} saying what to do right now and who to call; otherwise safety is empty. ` +
+          `pro: if danger, the kind of professional to look for, 1 to 3 words in ${SPEAK[lang]} (gas company, electrician, car mechanic, appliance repair); otherwise empty. ` +
           "name: its most specific name from everything you know (brand and model if known, otherwise a plain description like 'bicycle chain'), max 8 words. " +
           "mode: 'fix' for anything repair, replacement of a part, maintenance, cleaning or troubleshooting (a broken thing, a dead bulb, a clogged drain), otherwise 'build' (assemble, install, set up or use something new). Cleaning or dusting is always 'fix', even for a LEGO set or furniture. Putting a fallen piece back on, or rebuilding part of, something that has building instructions (a LEGO set, flat-pack furniture) is 'build', because the building instructions show where it goes. " +
           "issue: if mode is fix, the task or what is wrong in a few words; otherwise empty. " +
@@ -112,7 +117,7 @@ export async function understand(said: string, image?: string, history: Turn[] =
     {
       type: "object",
       additionalProperties: false,
-      required: ["clear", "ready", "name", "mode", "issue", "question", "options", "model", "needsModel", "query", "danger", "safety"],
+      required: ["clear", "ready", "name", "mode", "issue", "question", "options", "model", "needsModel", "query", "danger", "safety", "pro"],
       properties: {
         clear: { type: "boolean" },
         ready: { type: "boolean" },
@@ -125,6 +130,7 @@ export async function understand(said: string, image?: string, history: Turn[] =
         needsModel: { type: "boolean" },
         danger: { type: "boolean" },
         safety: { type: "string" },
+        pro: { type: "string" },
         query: { type: "string" },
       },
     },
@@ -190,9 +196,9 @@ export async function checkStep(
 
 export type Intent ={ action: "next" | "back" | "find" | "repeat" | "none"; target: string; reply: string };
 
-export async function interpret(said: string, step?: { instruction: string; parts: string[] }, lang: Lang = "en"): Promise<Intent> {
+export async function interpret(said: string, step?: { instruction: string; parts: string[]; number?: number; total?: number }, lang: Lang = "en"): Promise<Intent> {
   const context = step
-    ? `They are on this step: "${step.instruction}". Parts for this step: ${step.parts.join(", ") || "none"}.`
+    ? `They are on ${step.number && step.total ? `step ${step.number} of ${step.total}` : "this step"}: "${step.instruction}". Parts for this step: ${step.parts.join(", ") || "none"}.`
     : "They have no manual loaded; they're just looking for things with the camera.";
   return ask<Intent>(
     [
@@ -203,6 +209,7 @@ export async function interpret(said: string, step?: { instruction: string; part
           `${context} The user said: "${said}". ` +
           "Pick one action: next (go to the next step), back (previous step), find (show where something is with the camera), " +
           "repeat (read the step again) or none (just answer). " +
+          "Short confirmations (done, ok, next, listo, ya, siguiente) mean next. If what they said is unclear, a filler sound or cut off, pick none and briefly ask what they need. Never invent progress you weren't told. " +
           'For find, target is a short noun phrase to look for, color first if known, e.g. "red piece" or "vacuum cleaner"; otherwise "". ' +
           `reply is one short, upbeat spoken sentence in ${SPEAK[lang]}, no emoji.`,
       },

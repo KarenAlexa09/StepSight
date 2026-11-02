@@ -76,7 +76,7 @@ export default function BuildPage() {
 
   const step = manual && progress ? manual.steps[progress.step] : undefined;
   const anim = useAnimation(manual, progress?.step ?? 0);
-  const timber = useTimber(onIntent, step && { instruction: step.instruction, parts: step.parts.map(partLabel) });
+  const timber = useTimber(onIntent, step && { instruction: step.instruction, parts: step.parts.map(partLabel), number: (progress?.step ?? 0) + 1, total: manual?.steps.length });
 
   useEffect(() => () => clearTimeout(advanceTimer.current), []);
 

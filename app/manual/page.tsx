@@ -238,7 +238,7 @@ export default function ManualPage() {
   }
 
   const busy = dictation.listening || dictation.transcribing;
-  const shown: Understood = understood ?? { name: "", mode: "build", issue: "", clear: false, ready: false, question: "", options: [], model: "", needsModel: false, query: "", danger: false, safety: "" };
+  const shown: Understood = understood ?? { name: "", mode: "build", issue: "", clear: false, ready: false, question: "", options: [], model: "", needsModel: false, query: "", danger: false, safety: "", pro: "" };
   const asked = chat.filter((turn) => turn.role === "timber").length;
   const question = [...chat].reverse().find((turn) => turn.role === "timber")?.text ?? "";
   const lastYou = [...chat].reverse().find((turn) => turn.role === "you")?.text ?? "";
@@ -420,18 +420,22 @@ export default function ManualPage() {
       {phase === "danger" && (
         <>
           <header className="c-top">{back}</header>
-          <div className="c-ask">
-            <Timber pose="oops" size={72} />
+          <div className="c-pro">
+            <Timber pose="oops" size={120} />
             <h1 className="c-h1">{t("This one is for a pro")}</h1>
+            <p className="c-safety" role="alert">
+              {shown.safety}
+            </p>
+            <p className="c-muted">{t("I won't guide this one: a mistake here can really hurt you. I'm happy to help with something else.")}</p>
           </div>
-          <p className="c-safety" role="alert">
-            {shown.safety}
-          </p>
-          <p className="c-muted">{t("I won't guide this one: a mistake here can really hurt you. I'm happy to help with something else.")}</p>
-          <div className="c-grow" />
-          <div className="c-sticky">
-            <Link className="c-btn" href="/">
-              {t("Back home")}
+          <div className="c-sticky" style={{ flexDirection: "column" }}>
+            {shown.pro && (
+              <a className="c-btn" href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(shown.pro)}`} target="_blank" rel="noreferrer">
+                {t("Find a {pro} near me", { pro: shown.pro })}
+              </a>
+            )}
+            <Link className={shown.pro ? "c-btn ghost" : "c-btn"} href="/">
+              {t("Help with something else")}
             </Link>
           </div>
         </>

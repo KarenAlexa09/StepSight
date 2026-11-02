@@ -1584,6 +1584,33 @@ html.slow .c-anim-frame img {
   min-height: 50dvh;
 }
 
+body:has(.tabbar) .screen.c-find {
+  padding-bottom: 0;
+}
+
+/* "For a pro": centered, with something useful to do next */
+.c-pro {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  text-align: center;
+}
+
+.c-pro .c-h1 {
+  font-size: 30px;
+  line-height: 36px;
+}
+
+.c-pro .c-safety {
+  text-align: left;
+  font-size: 17px;
+  line-height: 24px;
+  padding: 16px 18px;
+}
+
 .c-find .c-cam-top .ask {
   background: #fff;
 }
@@ -1706,10 +1733,15 @@ html.slow .c-anim-frame img {
   text-transform: none;
 }
 
-/* "Hold steady" is a small pill above the overlapping sheet */
+/* The replay card sits above the "Watch again" / "Show me" pills, clear of the sheet. */
+.c-cam .stage .memo {
+  bottom: 88px;
+}
+
+/* "Hold steady" sits under the top bar, clear of "Show me" and the replay card at the bottom */
 .c-cam .stage .steady {
-  top: auto;
-  bottom: 40px;
+  top: 76px;
+  bottom: auto;
   transform: translateX(-50%);
   padding: 8px 14px;
   border: none;
