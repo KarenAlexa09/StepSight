@@ -69,6 +69,7 @@ export default function BuildPage() {
   const [help, setHelp] = useState(false);
   const [demoAfter, setDemoAfter] = useState(false);
   const [piece, setPiece] = useState<string | null>(null);
+  const [pieceIsStrip, setPieceIsStrip] = useState(false);
   const [simple, setSimple] = useState("");
   const [empty, setEmpty] = useState(false);
   const [held, setHeld] = useState(false);
@@ -125,6 +126,7 @@ export default function BuildPage() {
     setPhase("work");
     setDemoAfter(false);
     setPiece(null);
+    setPieceIsStrip(false);
     setCheck(null);
     setSimple("");
     setHelp(false);
@@ -149,16 +151,25 @@ export default function BuildPage() {
     goTo(from.step + 1, true, from);
   }
 
-  async function findPiece(shot: Shot, prompt: string) {
+  // find: a SAM prompt, or one part of the step for Spark to box.
+  async function findPiece(shot: Shot, find: { prompt: string } | { parts: Part[] }) {
     try {
       const res = await fetch("/api/segment", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ image: shot.image, prompt, width: shot.width, height: shot.height }),
+        body: JSON.stringify({ image: shot.image, ...find, width: shot.width, height: shot.height }),
       });
       const data = await res.json();
-      if (res.ok && data.matches?.[0]) setPiece(await cropBox(shot.image, data.matches[0].bounds));
+      if (res.ok && data.matches?.[0]) return setPiece(await cropBox(shot.image, data.matches[0].bounds));
     } catch {}
+    if ("parts" in find) showStrip();
+  }
+
+  // Several pieces off: the step's drawing says more than one close-up.
+  function showStrip() {
+    if (!anim.image) return;
+    setPiece(anim.image);
+    setPieceIsStrip(true);
   }
 
   async function verify() {
@@ -166,6 +177,7 @@ export default function BuildPage() {
     if (phase === "checking") return;
     setPhase("checking");
     setPiece(null);
+    setPieceIsStrip(false);
     setStatus(t("Timber is checking your build…"));
     if (manual?.demo) {
       setDemoAfter(true);
@@ -212,7 +224,10 @@ export default function BuildPage() {
         update({ ...progress, mistakes: progress.mistakes + 1, streak: 0, triedThisStep: true });
         play("oops");
         setPhase("fix");
-        if (targetOf(step)) findPiece(shot, targetOf(step));
+        const wrong = (result.wrong ?? []).map((n) => step.parts[n - 1]).filter(Boolean);
+        if (step.parts.length > 1 && wrong.length === 1) findPiece(shot, { parts: [{ ...wrong[0], quantity: 1 }] });
+        else if (step.parts.length > 1 && anim.image) showStrip();
+        else if (targetOf(step)) findPiece(shot, { prompt: targetOf(step) });
       }
     } catch (error) {
       setPhase("work");
@@ -517,10 +532,17 @@ export default function BuildPage() {
               {check?.fix && <p className="c-muted">{check.fix}</p>}
             </div>
             {piece && (
-              <figure className="c-piece">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={piece} alt={t("Close-up of the {name}", { name: targetOf(step) })} />
-                <figcaption>{t("this one")}</figcaption>
+              <figure className={`c-piece${pieceIsStrip ? " strip" : ""}`}>
+                {pieceIsStrip ? (
+                  <span className="c-anim-frame c-step-strip">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={piece} alt={t("Animation of this step: {step}", { step: step.instruction })} />
+                  </span>
+                ) : (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={piece} alt={t("Close-up of the {name}", { name: targetOf(step) })} />
+                )}
+                <figcaption>{pieceIsStrip ? t("how it goes") : t("this one")}</figcaption>
               </figure>
             )}
           </div>

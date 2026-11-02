@@ -73,6 +73,16 @@ export async function segment(image: string, prompt: string, minConfidence = MIN
 }
 
 export async function segmentBox(image: string, size: { width: number; height: number }, box: Box): Promise<Match[]> {
-  const matches = await segment(image, buildObjectPrompt({ size, objects: [{ id: 1, prompts: [{ box }] }] }), 0);
+  // Spark's boxes are tight and a bit off: a wider box plus a point on the piece's center makes SAM take the whole piece, not a corner of it.
+  const padX = Math.round((box.right - box.left) * 0.12);
+  const padY = Math.round((box.bottom - box.top) * 0.12);
+  const wide = {
+    left: Math.max(0, box.left - padX),
+    top: Math.max(0, box.top - padY),
+    right: Math.min(size.width, box.right + padX),
+    bottom: Math.min(size.height, box.bottom + padY),
+  };
+  const center = { x: Math.round((box.left + box.right) / 2), y: Math.round((box.top + box.bottom) / 2) };
+  const matches = await segment(image, buildObjectPrompt({ size, objects: [{ id: 1, prompts: [{ box: wide, points: [center] }] }] }), 0);
   return matches.length ? matches : [{ id: "1", bounds: box, size: [1, 1], path: "M0 0H1V1H0Z" }];
 }

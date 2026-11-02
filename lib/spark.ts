@@ -27,6 +27,14 @@ async function ask<T>(content: unknown[], name: string, schema: object, effort: 
   return JSON.parse(text);
 }
 
+// Pixel boxes came back squashed upward on tall phone frames (9:16); a 0–1000 scale per axis doesn't.
+const SCALE = "Give every coordinate on a 0 to 1000 scale: x as a fraction of the image width, y as a fraction of the image height (0 is the top-left corner, 1000 the right or bottom edge).";
+
+function toPixels(b: number[], size: { width: number; height: number }): Box {
+  const at = (v: number, max: number) => Math.round((Math.max(0, Math.min(1000, v)) / 1000) * max);
+  return { left: at(b[0], size.width), top: at(b[1], size.height), right: at(b[2], size.width), bottom: at(b[3], size.height) };
+}
+
 export async function locate(
   image: string,
   size: { width: number; height: number },
@@ -37,9 +45,9 @@ export async function locate(
       {
         type: "input_text",
         text:
-          `The image is ${size.width}x${size.height} pixels. Find the ${target}. ` +
+          `Find the ${target}. ` +
           "found is true only if you can clearly see that exact part; if it is hidden, cut off, too blurry or you would be guessing, found is false. " +
-          "If found, return box as [x1, y1, x2, y2] in pixels tight around it.",
+          `If found, return box as [x1, y1, x2, y2] tight around it. ${SCALE}`,
       },
       { type: "input_image", image_url: image },
     ],
@@ -52,13 +60,7 @@ export async function locate(
     },
   );
   if (!found || box.length !== 4) return null;
-  const clamp = (v: number, max: number) => Math.max(0, Math.min(max, v));
-  const result = {
-    left: clamp(box[0], size.width),
-    top: clamp(box[1], size.height),
-    right: clamp(box[2], size.width),
-    bottom: clamp(box[3], size.height),
-  };
+  const result = toPixels(box, size);
   return result.right - result.left > 2 && result.bottom - result.top > 2 ? result : null;
 }
 
@@ -72,8 +74,8 @@ export async function locateParts(image: string, size: { width: number; height: 
       {
         type: "input_text",
         text:
-          `The image is ${size.width}x${size.height} pixels and shows loose toy building pieces. Find the pieces for this building step:\n${list}\n` +
-          "For each numbered piece, return a tight box [x1, y1, x2, y2] in pixels around each separate matching piece you can clearly see, up to its quantity. " +
+          `The image shows loose toy building pieces. Find the pieces for this building step:\n${list}\n` +
+          `For each numbered piece, return a tight box [x1, y1, x2, y2] around each separate matching piece you can clearly see, up to its quantity. ${SCALE} ` +
           "Check color, shape and size carefully; never box the same piece twice, never box a piece that is a different kind, and leave a piece out rather than guess.",
       },
       { type: "input_image", image_url: image },
@@ -97,13 +99,57 @@ export async function locateParts(image: string, size: { width: number; height: 
     },
     "minimal",
   );
-  const clamp = (v: number, max: number) => Math.max(0, Math.min(max, v));
   return pieces.flatMap(({ part, boxes }) =>
     boxes
       .filter((b) => b.length === 4 && part >= 1 && part <= parts.length)
       .slice(0, parts[part - 1]?.quantity ?? 0)
-      .map((b) => ({ part: part - 1, box: { left: clamp(b[0], size.width), top: clamp(b[1], size.height), right: clamp(b[2], size.width), bottom: clamp(b[3], size.height) } }))
+      .map((b) => ({ part: part - 1, box: toPixels(b, size) }))
       .filter(({ box }) => box.right - box.left > 2 && box.bottom - box.top > 2),
+  );
+}
+
+// Set-of-Mark: SAM found every piece and each one carries a number label; Spark only picks numbers, which it does far better than placing boxes.
+export async function pickMarked(image: string, marked: string, count: number, parts: Piece[]): Promise<{ part: number; label: number }[]> {
+  const list = parts.map((p, i) => `${i + 1}. ${p.quantity}x ${p.color} ${p.name}${p.looks ? ` (${p.looks})` : ""}`).join("\n");
+  const { picks } = await ask<{ picks: { part: number; labels: number[] }[] }>(
+    [
+      {
+        type: "input_text",
+        text:
+          `Two photos of the same loose toy building pieces: the first is plain, the second has a white numbered label (1 to ${count}) on every piece. Pick the pieces for this building step:\n${list}\n` +
+          "For each numbered part, give the label numbers of matching pieces, up to its quantity. Look at the plain photo to judge color, shape and size; use the labels only to name the piece. " +
+          "Never pick the same label twice, and leave a part out rather than guess.",
+      },
+      { type: "input_image", image_url: image },
+      { type: "input_image", image_url: marked },
+    ],
+    "picks",
+    {
+      type: "object",
+      additionalProperties: false,
+      required: ["picks"],
+      properties: {
+        picks: {
+          type: "array",
+          items: {
+            type: "object",
+            additionalProperties: false,
+            required: ["part", "labels"],
+            properties: { part: { type: "integer" }, labels: { type: "array", items: { type: "integer" } } },
+          },
+        },
+      },
+    },
+    "minimal",
+  );
+  const used = new Set<number>();
+  return picks.flatMap(({ part, labels }) =>
+    part >= 1 && part <= parts.length
+      ? [...new Set(labels)]
+          .filter((l) => l >= 1 && l <= count && !used.has(l))
+          .slice(0, parts[part - 1].quantity)
+          .map((label) => (used.add(label), { part: part - 1, label }))
+      : [],
   );
 }
 
@@ -188,7 +234,7 @@ export async function understand(said: string, image?: string, history: Turn[] =
   return data;
 }
 
-export type Check = { done: boolean; problem: string; fix: string; reply: string; seen: string; confidence: "high" | "medium" | "low" };
+export type Check = { done: boolean; problem: string; fix: string; reply: string; seen: string; confidence: "high" | "medium" | "low"; wrong: number[] };
 
 const SPEAK: Record<Lang, string> = { en: "English", es: "Spanish" };
 
@@ -202,12 +248,13 @@ export async function checkStep(
       {
         type: "input_text",
         text:
-          `This is a photo of someone's build. The step was: "${step.instruction}" using ${step.parts.join(", ") || "no new parts"}. ` +
+          `This is a photo of someone's build. The step was: "${step.instruction}" using ${step.parts.map((p, i) => `${i + 1}) ${p}`).join(", ") || "no new parts"}. ` +
           `When the step is done this should be visibly true: "${step.check}". ` +
           "Is the step done? Judge only what you can actually see. Say done only if the photo clearly shows it. " +
           "If the part is hidden, blurry or cut off, say not done and ask for another angle. " +
           "seen: one short sentence of what you can see that decides it. confidence: high, medium or low. " +
           "If not done, problem and fix are each one short, friendly sentence naming parts by color and size; otherwise both are empty. " +
+          "wrong: the numbers of the listed parts that are missing, still loose or in the wrong place; empty if done. " +
           `Write seen, problem, fix and reply in ${SPEAK[lang]}. ` +
           "reply is what Timber the beaver says out loud: short, upbeat, no emoji.",
       },
@@ -217,9 +264,10 @@ export async function checkStep(
     {
       type: "object",
       additionalProperties: false,
-      required: ["done", "problem", "fix", "reply", "seen", "confidence"],
+      required: ["done", "problem", "fix", "reply", "seen", "confidence", "wrong"],
       properties: {
         done: { type: "boolean" },
+        wrong: { type: "array", items: { type: "integer" } },
         problem: { type: "string" },
         fix: { type: "string" },
         reply: { type: "string" },

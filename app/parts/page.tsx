@@ -115,7 +115,10 @@ export default function PartsPage() {
             <img src={shot.image} alt={t("Your parts")} />
             <svg viewBox={`0 0 ${shot.width} ${shot.height}`} preserveAspectRatio="xMidYMid slice" aria-hidden="true">
               {outlined.map((m, i) => (
-                <path key={i} d={m.path} transform={maskTransform(m)} className="mask" vectorEffect="non-scaling-stroke" />
+                <g key={i}>
+                  <path d={m.path} transform={maskTransform(m)} className="mask-halo" vectorEffect="non-scaling-stroke" />
+                  <path d={m.path} transform={maskTransform(m)} className="mask" vectorEffect="non-scaling-stroke" />
+                </g>
               ))}
             </svg>
           </>
