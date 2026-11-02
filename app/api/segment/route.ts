@@ -1,19 +1,38 @@
 import { limited } from "../../../lib/limit";
 import { segment, segmentBox } from "../../../lib/sam";
-import { locate } from "../../../lib/spark";
+import { locate, locateParts, type Piece } from "../../../lib/spark";
 
 const IMAGE = /^data:image\/(jpeg|png|webp);base64,/;
 const MAX_IMAGE_CHARS = 8_000_000;
 const isSize = (n: unknown) => Number.isInteger(n) && (n as number) > 0 && (n as number) <= 4096;
+const text = (v: unknown, max: number) => typeof v === "string" && v.length <= max;
+const isPiece = (p: Piece) => p && text(p.name, 60) && text(p.color, 30) && Number.isInteger(p.quantity) && p.quantity > 0 && p.quantity <= 10 && (p.looks === undefined || text(p.looks, 160));
 
 // shortcut: rate limit only, no auth; add auth before sharing the link publicly.
 export async function POST(req: Request) {
   const blocked = limited(req);
   if (blocked) return blocked;
-  const { image, prompt, width, height } = await req.json().catch(() => ({}));
+  const { image, prompt, parts, width, height } = await req.json().catch(() => ({}));
 
   if (typeof image !== "string" || !IMAGE.test(image) || image.length > MAX_IMAGE_CHARS) {
     return Response.json({ error: "Send a JPEG, PNG or WebP image under 6 MB." }, { status: 400 });
+  }
+
+  // Every piece of a step at once: Spark boxes each one, SAM cuts each out.
+  if (Array.isArray(parts)) {
+    if (!parts.length || parts.length > 8 || !parts.every(isPiece) || !isSize(width) || !isSize(height)) {
+      return Response.json({ error: "Send up to 8 parts and the image size." }, { status: 400 });
+    }
+    const started = Date.now();
+    try {
+      const size = { width, height };
+      const found = await locateParts(image, size, parts);
+      const matches = await Promise.all(found.map(async ({ part, box }) => ({ ...(await segmentBox(image, size, box))[0], part })));
+      return Response.json({ matches, via: "spark+sam", ms: Date.now() - started });
+    } catch (error) {
+      console.error(error);
+      return Response.json({ error: "Couldn't find the pieces. Try again." }, { status: 502 });
+    }
   }
   if (typeof prompt !== "string" || !prompt.trim() || prompt.length > 80) {
     return Response.json({ error: "Name the part in 80 characters or less." }, { status: 400 });

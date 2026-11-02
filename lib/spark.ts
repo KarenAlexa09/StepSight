@@ -4,7 +4,7 @@ import type { Box } from "./sam";
 const MODEL = "muse-spark-1.3";
 
 // "minimal" answers about 2x faster than "low" (2.3 s vs 4.4 s measured); keep "low" where judgment matters (photo checks).
-type Effort = "minimal" | "low";
+type Effort = "minimal" | "low" | "medium";
 
 async function ask<T>(content: unknown[], name: string, schema: object, effort: Effort = "low"): Promise<T> {
   const res = await fetch("https://api.meta.ai/v1/responses", {
@@ -60,6 +60,51 @@ export async function locate(
     bottom: clamp(box[3], size.height),
   };
   return result.right - result.left > 2 && result.bottom - result.top > 2 ? result : null;
+}
+
+export type Piece = { name: string; color: string; quantity: number; looks?: string };
+
+// Show me for a whole step: one box per piece the step needs (SAM alone misses most pieces in a loose pile).
+export async function locateParts(image: string, size: { width: number; height: number }, parts: Piece[]): Promise<{ part: number; box: Box }[]> {
+  const list = parts.map((p, i) => `${i + 1}. ${p.quantity}x ${p.color} ${p.name}${p.looks ? ` (${p.looks})` : ""}`).join("\n");
+  const { pieces } = await ask<{ pieces: { part: number; boxes: number[][] }[] }>(
+    [
+      {
+        type: "input_text",
+        text:
+          `The image is ${size.width}x${size.height} pixels and shows loose toy building pieces. Find the pieces for this building step:\n${list}\n` +
+          "For each numbered piece, return a tight box [x1, y1, x2, y2] in pixels around each separate matching piece you can clearly see, up to its quantity. " +
+          "Check color, shape and size carefully; never box the same piece twice, never box a piece that is a different kind, and leave a piece out rather than guess.",
+      },
+      { type: "input_image", image_url: image },
+    ],
+    "pieces",
+    {
+      type: "object",
+      additionalProperties: false,
+      required: ["pieces"],
+      properties: {
+        pieces: {
+          type: "array",
+          items: {
+            type: "object",
+            additionalProperties: false,
+            required: ["part", "boxes"],
+            properties: { part: { type: "integer" }, boxes: { type: "array", items: { type: "array", items: { type: "integer" } } } },
+          },
+        },
+      },
+    },
+    "minimal",
+  );
+  const clamp = (v: number, max: number) => Math.max(0, Math.min(max, v));
+  return pieces.flatMap(({ part, boxes }) =>
+    boxes
+      .filter((b) => b.length === 4 && part >= 1 && part <= parts.length)
+      .slice(0, parts[part - 1]?.quantity ?? 0)
+      .map((b) => ({ part: part - 1, box: { left: clamp(b[0], size.width), top: clamp(b[1], size.height), right: clamp(b[2], size.width), bottom: clamp(b[3], size.height) } }))
+      .filter(({ box }) => box.right - box.left > 2 && box.bottom - box.top > 2),
+  );
 }
 
 export type Turn = { role: "you" | "timber"; text: string };
