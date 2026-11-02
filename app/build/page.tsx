@@ -452,9 +452,9 @@ export default function BuildPage() {
           </div>
         </div>
 
-        {!showAnim && phase !== "correct" && (
+        {phase !== "correct" && (
           <div className="c-cam-bottom">
-            {anim.image ? (
+            {anim.image && !showAnim ? (
               <button type="button" className="c-pill" onClick={() => setWatching(true)}>
                 <svg {...icon} width="16" height="16">
                   <path d="M3 12a9 9 0 1 0 3-6.7L3 8" />
@@ -470,6 +470,8 @@ export default function BuildPage() {
                 type="button"
                 className="c-pill"
                 onClick={() => {
+                  // From the drawing too: close it and point the piece out on the camera.
+                  setWatching(false);
                   setPhase("work");
                   show();
                 }}
