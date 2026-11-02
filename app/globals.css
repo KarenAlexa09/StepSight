@@ -93,16 +93,36 @@ body {
   cursor: pointer;
 }
 
+/* a yellow outline over a dark halo reads on black and on yellow pieces alike */
 .mask {
   fill: var(--highlighter);
-  fill-opacity: 0.2;
-  stroke: var(--ink);
-  stroke-width: 2.5;
+  fill-opacity: 0.22;
+  stroke: var(--highlighter);
+  stroke-width: 3;
   stroke-linejoin: round;
 }
 
-.mask.late {
+.mask-halo {
+  fill: none;
+  stroke: var(--ink);
+  stroke-width: 7;
+  stroke-linejoin: round;
+  stroke-opacity: 0.9;
+}
+
+.mask-late {
   animation: fade-in 0.3s 1.9s both;
+}
+
+.mask-late.quick {
+  animation-delay: 0.25s;
+}
+
+/* several pieces: everything but them goes dark */
+.dim-rest {
+  fill: #141414;
+  fill-opacity: 0.55;
+  animation: fade-in 0.4s 0.15s both;
 }
 
 .frozen::after {
@@ -513,7 +533,8 @@ a.tip {
   .scan {
     display: none;
   }
-  .mask.late,
+  .mask-late,
+  .dim-rest,
   .ring {
     animation: none;
   }

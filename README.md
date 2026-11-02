@@ -62,7 +62,7 @@ Manuals are dense, generic and often in the wrong language. People stare at page
 | | A chatbot | StepSight |
 | --- | --- | --- |
 | Which instructions? | Generic advice | Asks for brand and model (or looks the product up from your photo first), then finds the official manual; it even reads LEGO's picture-only PDFs. Not online? Photograph the paper booklet and Timber reads the pages |
-| Which part? | "The small blue piece" | Muse Spark spots every piece the step needs in your pile and SAM 3.1 outlines each one on your camera |
+| Which part? | "The small blue piece" | SAM 3.1 outlines every piece on your table, Muse Spark picks the ones this step needs, and they light up on your camera |
 | Did I do it right? | You'll find out later | Muse Spark checks a photo of every step and says what it sees; a wrong piece is caught on the spot |
 | Is it safe? | Answers anything | Gas, mains electricity, car brakes: Timber says who to call instead. Electric jobs start with a camera-checked "it's unplugged" step that can't be skipped |
 | Where's this from? | Unclear | Every guide is tagged "Official manual" or "Web guide" with its link |
@@ -132,7 +132,7 @@ The AI is checked by repeatable labs that run real conversations and real photos
 | [Understanding](scripts/lab/run.mjs) | 57 conversations: LEGO sets, repairs, cleaning, setup, product photos, typos, Spanglish, emoji, rambling stories, made-up brands, changed minds, off-topic asks and dangerous jobs (latest full run) | 57 / 57 |
 | [Building](scripts/lab/build.mjs) | 16 step checks on real photos (each "done" paired with a near miss, like the blue brick beside the red one) and 16 things people say mid-build, in English and Spanish, 3 runs each | 96 / 96 |
 | [Voice](scripts/smoke/voice-lab.mjs) | Timber's lines spoken and transcribed back to catch wrong-language takes | 0 bad takes |
-| [Show me](scripts/lab/steps.mjs) | Every step of the road roller against one photo of all 49 pieces loose on a desk; each box checked by eye | 6 / 9 steps with every piece right |
+| [Show me](scripts/lab/marks.mjs) | Every step of the road roller against one photo of all 49 pieces loose on a desk; each pick checked by eye | 7 / 9 steps with every piece right (6 / 9 before numbered marks) |
 
 Bugs these labs caught and fixed: asking for the brand before searching, LEGO cleaning treated as building, recipes accepted as tasks, a filler "uhh" read as "next", Timber inventing how many steps were left, a second photo wiping out the first, and a generic guide offered for a building set. Still open: small look-alike pieces (yellow 1x1 bricks, curved slopes) get mixed up in a busy pile.
 
@@ -196,6 +196,7 @@ Quick checks that each model works with our inputs. Copy `.env.example` to `.env
 | `node scripts/lab/build.mjs [--runs=3]` | Muse Spark 1.3 | Step checks on the demo photos and mid-build voice commands |
 | `node --env-file=.env scripts/smoke/voice-lab.mjs` | Fish Audio + Muse Voice | Speaks Timber's lines with each voice and transcribes them back |
 | `node --experimental-strip-types scripts/lab/steps.mjs [photo] [steps]` | Muse Spark + SAM 3.1 | Show me for whole steps on a photo of loose pieces; boxes in `smoke-output/steps/` |
+| `node --env-file=.env --experimental-strip-types scripts/lab/marks.mjs [photo] [steps]` | SAM 3.1 + Muse Spark | Set-of-Mark: numbers every piece SAM finds and lets Spark pick each step's pieces; output in `smoke-output/marks/` |
 | `node scripts/lab/pieces.mjs [photo]` | SAM 3.1 | Which piece names SAM finds on its own |
 | `node --env-file=.env scripts/make-strips.mjs` | Muse Image | Redraws the tower demo's step strips from its real photos |
 | `node --env-file=.env scripts/make-roller-strips.mjs` | Muse Image | Draws the road roller's step strips from its booklet panels |
@@ -214,7 +215,8 @@ Quick checks that each model works with our inputs. Copy `.env.example` to `.env
 - Muse Spark's web search can't see picture-only manuals (LEGO), but it finds the official PDF and reads it directly when given the file.
 - An English voice reading Spanish came out with a foreign accent; one voice that speaks both languages, told which one to use, fixed it.
 - Only the first 50 pages of a PDF are read as images; Muse Spark turned a LEGO booklet into 43 steps with parts in about a minute.
-- In a pile of 49 loose pieces SAM 3.1 alone finds almost nothing by name ("yellow technic brick" returns 25 yellow pieces of every kind). Muse Spark boxing each piece and SAM cutting it out finds a whole step in 4–8 s.
+- In a pile of 49 loose pieces SAM 3.1 finds almost nothing by a specific name ("yellow technic brick" returns 25 yellow pieces of every kind), but "lego piece" finds 48 of 49 in under 2 s. Numbering each one and letting Muse Spark pick numbers (Set-of-Mark prompting) beat asking Spark for boxes: 7 of 9 steps fully right instead of 6, with SAM's own full-piece masks.
+- Muse Spark's pixel boxes drift upward on tall 9:16 phone frames; a 0–1000 scale per axis and sending only the visible part of the frame fixed it.
 - Muse Spark turned 10 page images of a LEGO booklet into 14 steps that match the pages, in about 30 s.
 - Voice input needs WAV, mono, 16-bit PCM at 16 or 24 kHz.
 

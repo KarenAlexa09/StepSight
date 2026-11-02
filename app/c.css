@@ -1931,3 +1931,17 @@ a.c-card {
   font-size: 16px;
   line-height: 1;
 }
+
+/* "Almost." with several pieces off: the step's drawing instead of one close-up */
+.c-piece.strip .c-step-strip {
+  width: 112px;
+  margin-top: 0;
+  border: 3px solid var(--highlighter);
+}
+
+.c-piece.strip img {
+  width: 330%;
+  height: 110%;
+  border: 0;
+  border-radius: 0;
+}

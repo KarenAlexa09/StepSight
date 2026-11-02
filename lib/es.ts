@@ -401,4 +401,5 @@ export const ES: Record<string, string> = {
   "I can't see those pieces here. Spread them out and get closer.": "No veo esas piezas aquí. Sepáralas un poco y acércate.",
   "Grab these": "Coge estas",
   "Found {n} of {total} pieces": "Encontré {n} de {total} piezas",
+  "how it goes": "así va",
 };

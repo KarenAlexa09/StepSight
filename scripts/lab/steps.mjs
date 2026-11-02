@@ -30,7 +30,8 @@ for (const step of manual.steps.filter((s) => !only || only.includes(s.number)))
     const matches = data.matches ?? [];
     const counts = step.parts.map((p, i) => `${matches.filter((m) => m.part === i).length}/${p.quantity} ${p.color} ${p.name}`);
     console.log(`step ${step.number} run ${run} (${(data.ms / 1000).toFixed(0)}s): ${counts.join(" · ")}`);
-    const boxes = matches.map((m) => `<rect x="${m.bounds.left}" y="${m.bounds.top}" width="${m.bounds.right - m.bounds.left}" height="${m.bounds.bottom - m.bounds.top}" fill="none" stroke="${COLORS[m.part % COLORS.length]}" stroke-width="4"/><text x="${m.bounds.left}" y="${m.bounds.top - 4}" font-size="20" font-weight="700" fill="${COLORS[m.part % COLORS.length]}">${m.part + 1}</text>`).join("");
+    const masks = matches.map((m) => `<path d="${m.path}" transform="translate(${m.bounds.left} ${m.bounds.top}) scale(${(m.bounds.right - m.bounds.left) / m.size[0]} ${(m.bounds.bottom - m.bounds.top) / m.size[1]})" fill="${COLORS[m.part % COLORS.length]}" fill-opacity="0.45"/>`).join("");
+    const boxes = masks + matches.map((m) => `<rect x="${m.bounds.left}" y="${m.bounds.top}" width="${m.bounds.right - m.bounds.left}" height="${m.bounds.bottom - m.bounds.top}" fill="none" stroke="${COLORS[m.part % COLORS.length]}" stroke-width="4"/><text x="${m.bounds.left}" y="${m.bounds.top - 4}" font-size="20" font-weight="700" fill="${COLORS[m.part % COLORS.length]}">${m.part + 1}</text>`).join("");
     const legend = step.parts.map((p, i) => `<text x="10" y="${30 + i * 26}" font-size="22" font-weight="700" fill="${COLORS[i % COLORS.length]}">${i + 1} ${p.quantity}x ${p.color} ${p.name}</text>`).join("");
     const svg = Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="${info.width}" height="${info.height}">${boxes}${legend}</svg>`);
     await sharp(jpeg).composite([{ input: svg }]).jpeg({ quality: 70 }).toFile(`${OUT}/step-${step.number}-run${run}.jpg`);

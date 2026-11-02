@@ -2,12 +2,17 @@ import type { Match } from "./sam";
 
 export type Shot = { image: string; width: number; height: number };
 
-export function toShot(source: CanvasImageSource, width: number, height: number, maxWidth = 768, quality = 0.85): Shot {
-  const scale = Math.min(1, maxWidth / width);
+// ratio: when the frame is taller than that width/height ratio, keep only its centered middle, like object-fit: cover shows it.
+// Sides are never cut: a square demo photo in a narrow view would lose its bricks.
+export function toShot(source: CanvasImageSource, width: number, height: number, maxWidth = 768, quality = 0.85, ratio?: number): Shot {
+  let [sy, sh] = [0, height];
+  if (ratio && width / height < ratio) [sh, sy] = [Math.round(width / ratio), Math.round((height - width / ratio) / 2)];
+  const [sx, sw] = [0, width];
+  const scale = Math.min(1, maxWidth / sw);
   const canvas = document.createElement("canvas");
-  canvas.width = Math.round(width * scale);
-  canvas.height = Math.round(height * scale);
-  canvas.getContext("2d")!.drawImage(source, 0, 0, canvas.width, canvas.height);
+  canvas.width = Math.round(sw * scale);
+  canvas.height = Math.round(sh * scale);
+  canvas.getContext("2d")!.drawImage(source, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height);
   return { image: canvas.toDataURL("image/jpeg", quality), width: canvas.width, height: canvas.height };
 }
 
@@ -52,5 +57,39 @@ export function cropBox(dataUrl: string, bounds: Match["bounds"], size = 180): P
     };
     img.onerror = () => reject(new Error("crop failed"));
     img.src = dataUrl;
+  });
+}
+
+// Set-of-Mark: a white numbered label on the center of every piece SAM found, for Muse Spark to pick from.
+export function drawMarks(shot: Shot, matches: Match[]): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement("canvas");
+      canvas.width = shot.width;
+      canvas.height = shot.height;
+      const ctx = canvas.getContext("2d")!;
+      ctx.drawImage(img, 0, 0, shot.width, shot.height);
+      const r = Math.max(10, Math.round(shot.width / 64));
+      ctx.font = `700 ${Math.round(r * 1.15)}px Arial, sans-serif`;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.lineWidth = 2;
+      matches.forEach((m, i) => {
+        const x = (m.bounds.left + m.bounds.right) / 2;
+        const y = (m.bounds.top + m.bounds.bottom) / 2;
+        ctx.fillStyle = "#fff";
+        ctx.strokeStyle = "#000";
+        ctx.beginPath();
+        ctx.arc(x, y, r, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+        ctx.fillStyle = "#000";
+        ctx.fillText(String(i + 1), x, y + 1);
+      });
+      resolve(canvas.toDataURL("image/jpeg", 0.88));
+    };
+    img.onerror = reject;
+    img.src = shot.image;
   });
 }

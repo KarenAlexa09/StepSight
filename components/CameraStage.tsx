@@ -2,7 +2,7 @@
 
 import { tr, useT } from "../lib/i18n";
 import { useEffect, useImperativeHandle, useRef, useState, type CSSProperties, type Ref } from "react";
-import { maskTransform, toShot, type Shot } from "../lib/image";
+import { drawMarks, maskTransform, toShot, type Shot } from "../lib/image";
 import type { Motion, Part } from "../lib/manual";
 import type { Box, Match } from "../lib/sam";
 import { getSettings } from "../lib/settings";
@@ -137,6 +137,7 @@ export default function CameraStage({
   const t = useT();
   const videoRef = useRef<HTMLVideoElement>(null);
   const photoRef = useRef<HTMLImageElement>(null);
+  const stageRef = useRef<HTMLDivElement>(null);
   const sampler = useRef<CanvasRenderingContext2D | null>(null);
   const lastSample = useRef<Uint8ClampedArray | null>(null);
   const steadyTicks = useRef(0);
@@ -196,7 +197,9 @@ export default function CameraStage({
     const width = source instanceof HTMLVideoElement ? source.videoWidth : source.naturalWidth;
     const height = source instanceof HTMLVideoElement ? source.videoHeight : source.naturalHeight;
     if (!width || !height) return null;
-    return toShot(source, width, height);
+    // Only what's on screen: the full frame is taller than the view, and Spark places boxes badly on tall frames.
+    const view = stageRef.current?.getBoundingClientRect();
+    return toShot(source, width, height, 768, 0.85, view?.width && view.height ? view.width / view.height : undefined);
   }
 
   async function segment(shot: Shot, prompt: string) {
@@ -274,15 +277,23 @@ export default function CameraStage({
     setMoving(false);
     onStatus(t("Looking for the {n} pieces…", { n: total }));
     play("whoosh");
-    try {
-      const res = await fetch("/api/segment", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ image: shot.image, parts, width: shot.width, height: shot.height }),
-      });
+    const post = async (body: object) => {
+      const res = await fetch("/api/segment", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ image: shot.image, ...body }) });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
-      const matches: Match[] = data.matches;
+      return data;
+    };
+    try {
+      // SAM outlines every brick on the table, each gets a number, and Spark picks the step's numbers.
+      // Not bricks (screws, panels)? Spark boxes each part instead.
+      const all: Match[] = (await post({ prompt: "lego piece" })).matches;
+      let matches: Match[];
+      if (all.length >= 2) {
+        const { picks } = await post({ marked: await drawMarks(shot, all), count: all.length, parts });
+        matches = (picks as { part: number; label: number }[]).map(({ part, label }) => ({ ...all[label - 1], part }) as Match);
+      } else {
+        matches = (await post({ parts, width: shot.width, height: shot.height })).matches;
+      }
       if (!matches.length) {
         onStatus(t("I can't see those pieces here. Spread them out and get closer."));
         return 0;
@@ -357,7 +368,7 @@ export default function CameraStage({
   const memoVec = memo ? vectorOf(memo) : null;
 
   return (
-    <div className={`stage fill${snapshot ? " frozen" : ""}`}>
+    <div ref={stageRef} className={`stage fill${snapshot ? " frozen" : ""}`}>
       {photo ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img ref={photoRef} src={photo} alt={t("Your uploaded photo")} className="media photo" />
@@ -386,7 +397,10 @@ export default function CameraStage({
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <image href={memo.image} width={memo.width} height={memo.height} />
             {memo.matches.map((m) => (
-              <path key={m.id} d={m.path} transform={maskTransform(m)} className="mask" vectorEffect="non-scaling-stroke" />
+              <g key={m.id}>
+                <path d={m.path} transform={maskTransform(m)} className="mask-halo" vectorEffect="non-scaling-stroke" />
+                <path d={m.path} transform={maskTransform(m)} className="mask" vectorEffect="non-scaling-stroke" />
+              </g>
             ))}
             {memo.dest && <DestBox match={memo.dest} unit={Math.max(memo.width, memo.height) / 100} />}
             {memoVec && (
@@ -481,10 +495,24 @@ function FoundIt({ snapshot }: { snapshot: Snapshot }) {
             <stop offset="1" stopColor="#141414" stopOpacity="0.72" />
           </radialGradient>
         </defs>
+        {many && (
+          <>
+            <mask id={`holes-${key}`}>
+              <rect width={width} height={height} fill="white" />
+              {matches.map((m) => (
+                <path key={m.id} d={m.path} transform={maskTransform(m)} fill="black" />
+              ))}
+            </mask>
+            <rect className="dim-rest" width={width} height={height} mask={`url(#holes-${key})`} />
+          </>
+        )}
         {matches.map((m) => (
-          <path key={m.id} d={m.path} transform={maskTransform(m)} className="mask late" vectorEffect="non-scaling-stroke" />
+          <g key={m.id} className={`mask-late${many ? " quick" : ""}`}>
+            <path d={m.path} transform={maskTransform(m)} className="mask-halo" vectorEffect="non-scaling-stroke" />
+            <path d={m.path} transform={maskTransform(m)} className="mask" vectorEffect="non-scaling-stroke" />
+          </g>
         ))}
-        {(many ? matches : [first]).map((m) => (
+        {(many ? [] : [first]).map((m) => (
           <rect
             key={m.id}
             className="ring"
@@ -503,8 +531,8 @@ function FoundIt({ snapshot }: { snapshot: Snapshot }) {
             ))}
           </g>
         )}
-        <rect className="spot fx" width={width} height={height} fill={`url(#spot-${key})`} />
-        <g className="rays fx" style={{ transformOrigin: `${sx}px ${sy}px` }}>
+        {!many && <rect className="spot fx" width={width} height={height} fill={`url(#spot-${key})`} />}
+        <g className="rays fx" style={{ transformOrigin: `${sx}px ${sy}px`, display: many ? "none" : undefined }}>
           {Array.from({ length: 10 }, (_, i) => {
             const a0 = (i * 36 * Math.PI) / 180;
             const a1 = a0 + 0.24;

@@ -1,6 +1,6 @@
 import { limited } from "../../../lib/limit";
 import { segment, segmentBox } from "../../../lib/sam";
-import { locate, locateParts, type Piece } from "../../../lib/spark";
+import { locate, locateParts, pickMarked, type Piece } from "../../../lib/spark";
 
 const IMAGE = /^data:image\/(jpeg|png|webp);base64,/;
 const MAX_IMAGE_CHARS = 8_000_000;
@@ -12,10 +12,24 @@ const isPiece = (p: Piece) => p && text(p.name, 60) && text(p.color, 30) && Numb
 export async function POST(req: Request) {
   const blocked = limited(req);
   if (blocked) return blocked;
-  const { image, prompt, parts, width, height } = await req.json().catch(() => ({}));
+  const { image, prompt, parts, marked, count, width, height } = await req.json().catch(() => ({}));
 
   if (typeof image !== "string" || !IMAGE.test(image) || image.length > MAX_IMAGE_CHARS) {
     return Response.json({ error: "Send a JPEG, PNG or WebP image under 6 MB." }, { status: 400 });
+  }
+
+  // Set-of-Mark: the phone numbered every piece SAM found; Spark picks the step's pieces by number.
+  if (typeof marked === "string") {
+    if (!IMAGE.test(marked) || marked.length > MAX_IMAGE_CHARS || !Number.isInteger(count) || count < 1 || count > 200 || !Array.isArray(parts) || !parts.length || parts.length > 8 || !parts.every(isPiece)) {
+      return Response.json({ error: "Send the numbered photo, how many pieces it shows and up to 8 parts." }, { status: 400 });
+    }
+    const started = Date.now();
+    try {
+      return Response.json({ picks: await pickMarked(image, marked, count, parts), ms: Date.now() - started });
+    } catch (error) {
+      console.error(error);
+      return Response.json({ error: "Couldn't find the pieces. Try again." }, { status: 502 });
+    }
   }
 
   // Every piece of a step at once: Spark boxes each one, SAM cuts each out.
