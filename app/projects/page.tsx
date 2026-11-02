@@ -48,7 +48,7 @@ export default function ProjectsPage() {
           <p className="kicker">{t("IN PROGRESS")}</p>
           <Link href="/build" className="c-resume">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            {manual.demo && <img src={`/demo/anim-${manual.demo}-1.jpg`} alt="" />}
+            {(manual.demo || manual.strips) && <img src={manual.strips?.[0] ?? `/demo/anim-${manual.demo}-1.jpg`} alt="" />}
             <span className="c-grow">
               <span className="kicker">{t("STEP {n} OF {total}", { n: current, total: steps })}</span>
               <span style={{ display: "block", fontSize: 16, fontWeight: 500, margin: "2px 0 8px" }}>{manual.title}</span>

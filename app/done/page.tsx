@@ -81,7 +81,7 @@ export default function DonePage() {
           <Replay frames={frames} />
         ) : (
           // eslint-disable-next-line @next/next/no-img-element
-          manual.demo ? <img className="c-done-photo" src={`/demo/anim-${manual.demo}-${manual.steps.length}.jpg`} alt="" /> : <span className="c-done-photo" />
+          manual.demo || manual.strips ? <img className="c-done-photo" src={manual.strips?.at(-1) ?? `/demo/anim-${manual.demo}-${manual.steps.length}.jpg`} alt="" /> : <span className="c-done-photo" />
         )}
         <Timber pose="celebrate" size={120} move="hop" className="c-done-timber" />
       </div>

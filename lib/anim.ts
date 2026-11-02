@@ -106,7 +106,7 @@ export function useAnimation(m: Manual | null, i: number) {
   }, []);
   if (!m?.steps[i]) return { image: undefined, drawing: false };
   if (m.demo) return { image: `/demo/anim-${m.demo}-${i + 1}.jpg`, drawing: false };
-  if (m.panels) return { image: m.panels[i], drawing: false };
+  if (m.strips) return { image: m.strips[i], drawing: false };
   if (m.mode !== "fix") return { image: undefined, drawing: false };
   const key = keyOf(m, i);
   return { image: stored(key), drawing: pending.has(key) };
