@@ -396,4 +396,5 @@ export const ES: Record<string, string> = {
   "Read 1 page": "Leer 1 página",
   "Read {n} pages": "Leer {n} páginas",
   "your photos": "tus fotos",
+  "paper manual": "manual de papel",
 };
