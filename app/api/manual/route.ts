@@ -4,15 +4,25 @@ import { readManual, type Mode, type Source } from "../../../lib/manual";
 // A web search plus reading can take up to 3 minutes.
 export const maxDuration = 300;
 
+const IMAGE = /^data:image\/(jpeg|png|webp);base64,/;
+// Vercel caps a request at 4.5 MB; 10 pages at 1200 px fit.
+const MAX_PAGES = 10;
+
 // shortcut: rate limit only, no auth; add auth before sharing the link publicly.
 export async function POST(req: Request) {
   const blocked = limited(req);
   if (blocked) return blocked;
-  const { url, query, mode: rawMode, lang } = await req.json().catch(() => ({}));
+  const { url, query, images, mode: rawMode, lang } = await req.json().catch(() => ({}));
   const mode: Mode = rawMode === "fix" ? "fix" : "build";
 
   let source: Source;
-  if (typeof url === "string") {
+  if (Array.isArray(images)) {
+    const pages = images.filter((x): x is string => typeof x === "string" && IMAGE.test(x) && x.length <= 2_000_000);
+    if (!pages.length || pages.length !== images.length || pages.length > MAX_PAGES) {
+      return Response.json({ error: `Send 1 to ${MAX_PAGES} photos of the manual's pages.` }, { status: 400 });
+    }
+    source = { kind: "photos", images: pages };
+  } else if (typeof url === "string") {
     let parsed: URL | null = null;
     try {
       parsed = url.length <= 500 ? new URL(url) : null;

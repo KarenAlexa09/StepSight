@@ -25,7 +25,7 @@
     <td align="center"><b>4</b><br>Meta models working together</td>
     <td align="center"><b>57 / 57</b><br>conversations understood</td>
     <td align="center"><b>96 / 96</b><br>step checks and voice commands</td>
-    <td align="center"><b>0</b><br>dangerous jobs guided</td>
+    <td align="center"><b>4 / 4</b><br>dangerous jobs sent to a pro</td>
   </tr>
 </table>
 
@@ -61,7 +61,7 @@ Manuals are dense, generic and often in the wrong language. People stare at page
 
 | | A chatbot | StepSight |
 | --- | --- | --- |
-| Which instructions? | Generic advice | Asks for brand and model, then finds the official manual (it even reads LEGO's picture-only PDFs) |
+| Which instructions? | Generic advice | Asks for brand and model, then finds the official manual (it even reads LEGO's picture-only PDFs). Not online? Photograph the paper booklet and Timber reads the pages |
 | Which part? | "The small blue piece" | SAM 3.1 outlines the exact part on your camera |
 | Did I do it right? | You'll find out later | Muse Spark checks a photo of every step and says what it sees; a wrong piece is caught on the spot |
 | Is it safe? | Answers anything | Gas, mains electricity, car brakes: Timber says who to call instead. Electric jobs start with a camera-checked "it's unplugged" step that can't be skipped |
@@ -108,7 +108,7 @@ What Timber decides on its own:
 | Model | What it does in StepSight | Where |
 | --- | --- | --- |
 | **Muse Spark 1.3** | Understands the request and runs the follow-up chat; searches the web for the official manual and reads picture-only PDFs; checks each step from a photo; understands what you say mid-build; identifies products for "My things"; spots dangerous jobs; reviews every step drawing | [`lib/spark.ts`](lib/spark.ts), [`lib/manual.ts`](lib/manual.ts) |
-| **SAM 3.1** | Outlines the exact part on the camera and its destination; checks that every part is on the table; finds anything you ask for in Find | [`lib/sam.ts`](lib/sam.ts), [`components/CameraStage.tsx`](components/CameraStage.tsx) |
+| **SAM 3.1** | Outlines the exact part on the camera and its destination; checks that every part is on the table | [`lib/sam.ts`](lib/sam.ts), [`components/CameraStage.tsx`](components/CameraStage.tsx) |
 | **Muse Image 1.0** | Draws each step as a 3-panel strip; the demo's strips are drawn from its real photos so every brick matches; made Timber's nine poses and the demo photos | [`app/api/animate`](app/api/animate/route.ts), [`scripts/make-strips.mjs`](scripts/make-strips.mjs) |
 | **Muse Voice Transcribe 1.0** | Hands-free: say what you need, answer Timber's questions, ask "where's the red brick?" mid-build | [`lib/voice.ts`](lib/voice.ts), [`scripts/voice-relay.mjs`](scripts/voice-relay.mjs) |
 
@@ -124,7 +124,7 @@ The AI is checked by repeatable labs that run real conversations and real photos
 
 | Lab | What it throws at Timber | Result |
 | --- | --- | --- |
-| [Understanding](scripts/lab/run.mjs) | 57 conversations: LEGO sets, repairs, cleaning, setup, product photos, typos, Spanglish, emoji, rambling stories, made-up brands, changed minds, off-topic asks and dangerous jobs | 57 / 57 |
+| [Understanding](scripts/lab/run.mjs) | 57 conversations: LEGO sets, repairs, cleaning, setup, product photos, typos, Spanglish, emoji, rambling stories, made-up brands, changed minds, off-topic asks and dangerous jobs (latest full run) | 57 / 57 |
 | [Building](scripts/lab/build.mjs) | 16 step checks on real photos (each "done" paired with a near miss, like the blue brick beside the red one) and 16 things people say mid-build, in English and Spanish, 3 runs each | 96 / 96 |
 | [Voice](scripts/smoke/voice-lab.mjs) | Timber's lines spoken and transcribed back to catch wrong-language takes | 0 bad takes |
 
@@ -162,7 +162,7 @@ Everything here was built for the Meta Global AI Developer Hackathon, Oct 26 –
 4. **Build** (`/build`): fixes start with a tools and safety checklist. Each step is **do** (just tap Done), **find** (Timber points the part out) or **verify** (a photo check). **Show me** highlights the part with SAM, with a dashed arrow to where it goes. A correct step flashes "Solid!" and moves on; a wrong one shows "Almost." with what to fix and a close-up of the piece. **I'm lost** offers a replay, a simpler explanation, the manual page or a question for Timber, plus sound, captions, vibration, slower animations and bigger text.
 5. **Talk to Timber** mid-build: "where's the gray clip?", "ok what now?", "say that again".
 6. **You built it** (`/done`): a stop-motion replay of every step, your stats and a share card (GIF).
-7. **Projects**, **My things** (products you own, identified from a photo, so asking for help later skips the questions) and **Find** (ask for anything in the camera).
+7. **Projects** and **My things** (products you own, identified from a photo, so asking for help later skips the questions).
 
 </details>
 
@@ -203,8 +203,12 @@ Quick checks that each model works with our inputs. Copy `.env.example` to `.env
 - SAM 3.1 finds "blue brick" but not "blue 2x2 brick", so the app retries without sizes before asking Muse Spark to locate the part.
 - SAM 3.1 matches by color and type, not size: "white 2x2 brick" also returns white 2x4 bricks.
 - Muse Spark's web search can't see picture-only manuals (LEGO), but it finds the official PDF and reads it directly when given the file.
-- An English voice reading Spanish came out with a foreign accent; a native voice per language fixed it.
+- An English voice reading Spanish came out with a foreign accent; one voice that speaks both languages, told which one to use, fixed it.
 - Only the first 50 pages of a PDF are read as images; Muse Spark turned a LEGO booklet into 43 steps with parts in about a minute.
 - Voice input needs WAV, mono, 16-bit PCM at 16 or 24 kHz.
 
 </details>
+
+## License
+
+[MIT](LICENSE)

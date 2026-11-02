@@ -642,8 +642,8 @@ body {
 }
 
 .c-seg button[aria-pressed="true"] {
-  background: #fff;
-  color: var(--ink);
+  background: var(--ink);
+  color: var(--highlighter);
 }
 
 /* searching: radar + notebook */
@@ -1867,4 +1867,67 @@ a.c-card {
   filter: none;
   mix-blend-mode: normal;
   opacity: 1;
+}
+
+.tabbar {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.c-btn input[type="file"] {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}
+
+.c-pages {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin: 16px 0 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: page;
+}
+
+.c-pages li {
+  position: relative;
+  counter-increment: page;
+}
+
+.c-pages img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 3 / 4;
+  object-fit: cover;
+  border: 2px solid var(--ink);
+  border-radius: 12px;
+}
+
+.c-pages li::before {
+  content: counter(page);
+  position: absolute;
+  left: 6px;
+  bottom: 6px;
+  min-width: 22px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: var(--ink);
+  color: var(--highlighter);
+  font-size: 12px;
+  font-weight: 700;
+  text-align: center;
+}
+
+.c-pages button {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  width: 28px;
+  height: 28px;
+  border: 2px solid var(--ink);
+  border-radius: 50%;
+  background: #fff;
+  font-size: 16px;
+  line-height: 1;
 }

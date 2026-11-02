@@ -16,7 +16,7 @@ export default function SourceTag({ manual }: { manual: Manual }) {
   const name = manual.pdf ? url?.hostname : manual.source?.name || url?.hostname;
   if (!name) return null;
   const label = manual.pdf ? t("YOUR PDF") : manual.source?.official ? t("OFFICIAL MANUAL") : manual.source?.specific === false ? t("GENERIC GUIDE") : t("WEB GUIDE");
-  const text = `${label} · ${name}`;
+  const text = `${label} · ${t(name)}`;
   return url ? (
     <a className="source" href={url.href} target="_blank" rel="noopener noreferrer">
       {text} ↗

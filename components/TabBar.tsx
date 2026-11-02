@@ -12,7 +12,6 @@ const icon = (children: ReactNode) => (
 );
 
 const TABS = [
-  { href: "/", label: "Home", icon: icon(<path d="M4 11l8-7 8 7v9H4z" />) },
   { href: "/projects", label: "Projects", icon: icon(<path d="M3 7h6l2 2h10v10H3z" />) },
   {
     href: "/things",
@@ -24,19 +23,9 @@ const TABS = [
       </>,
     ),
   },
-  {
-    href: "/find",
-    label: "Find",
-    icon: icon(
-      <>
-        <circle cx="11" cy="11" r="6.5" />
-        <path d="M16 16l5 5" />
-      </>,
-    ),
-  },
 ];
 
-const SHOWN = ["/", "/projects", "/things", "/find"];
+const SHOWN = ["/", "/projects", "/things"];
 
 export default function TabBar() {
   const t = useT();
@@ -52,13 +41,13 @@ export default function TabBar() {
 
   return (
     <nav className="tabbar" aria-label={t("Main")}>
-      {TABS.slice(0, 2).map(tab)}
-      <Link href="/#ask" className="tab-new" aria-label={t("New project")}>
+      {tab(TABS[0])}
+      <Link href="/" className="tab-new" aria-label={t("New project")} aria-current={path === "/" ? "page" : undefined}>
         <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" aria-hidden="true">
           <path d="M12 5v14M5 12h14" />
         </svg>
       </Link>
-      {TABS.slice(2).map(tab)}
+      {tab(TABS[1])}
     </nav>
   );
 }

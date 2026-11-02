@@ -29,7 +29,7 @@ export type Manual = {
   hazard?: Hazard;
   source?: Origin;
 };
-export type Source = { kind: "pdf"; url: string } | { kind: "search"; query: string; mode: Mode };
+export type Source = { kind: "pdf"; url: string } | { kind: "search"; query: string; mode: Mode } | { kind: "photos"; images: string[] };
 
 const part = {
   type: "object",
@@ -123,6 +123,12 @@ const MODEL_FIRST =
   "If you read the manufacturer's own page or manual, base the steps on it and give it as the source (official true), even if other sites say the same. ";
 
 function base(source: Source) {
+  if (source.kind === "photos")
+    return (
+      `These are phone photos of the pages of a paper manual, in order. Turn them into steps in order, using only what the pages show; never invent steps. ${FORMAT} ${KINDS} ` +
+      "If it is an assembly manual, use kind 'verify' for every step, keep the manual's own step numbers in order and leave prep empty. Set page to the photo number (1 for the first photo). " +
+      "title is just the product's name. Leave source name and url empty. If the photos don't show a manual, return no steps."
+    );
   if (source.kind === "pdf")
     return `This is an assembly manual. Turn it into build steps in order. ${FORMAT} ${KINDS} Use kind 'verify' for every step. Leave prep empty. Leave source name and url empty.`;
   if (source.mode === "fix")
@@ -132,7 +138,9 @@ function base(source: Source) {
       "Use verify only for steps whose result is visible, and make the last step a verify step that shows it is fixed. Leave parts empty. Set page to 0. Fill source with the page you used."
     );
   return (
-    `Search the web for the official assembly instructions or manual for: "${source.query}". ${MODEL_FIRST}Turn them into build steps in order. ${FORMAT} ${KINDS} ` +
+    `Search the web for the official assembly instructions or manual for: "${source.query}". ${MODEL_FIRST}` +
+    "Building steps are specific to one set or product: if you can't find the real steps for this exact one, return no steps instead of a generic guide. " +
+    `Turn them into build steps in order. ${FORMAT} ${KINDS} ` +
     "Use kind 'verify' for every step. Leave prep empty. Set page to 0 if you can't tell the page. Fill source with the manual or page you used."
   );
 }
@@ -150,6 +158,7 @@ type Item = { type: string; phase?: string; action?: { type: string; query?: str
 export async function readManual(source: Source, lang: Lang, emit: (event: ReadEvent) => void): Promise<void> {
   const content: unknown[] = [{ type: "input_text", text: prompt(source, lang) }];
   if (source.kind === "pdf") content.push({ type: "input_file", file_url: source.url });
+  if (source.kind === "photos") content.push(...source.images.map((url) => ({ type: "input_image", image_url: url })));
 
   const res = await fetch(API, {
     method: "POST",
@@ -183,7 +192,11 @@ export async function readManual(source: Source, lang: Lang, emit: (event: ReadE
       if (event.type === "response.completed") {
         const output = event.response.output ?? [];
         const manual = parseManual(output);
-        if (manual) return emit({ type: "done", manual });
+        if (manual && source.kind === "photos") manual.source = { name: "your photos", url: "", official: true, specific: true };
+        // A generic guide can't tell you how to build one exact set: say so, so the app offers the paper manual.
+        const vague = source.kind === "search" && source.mode === "build" && manual?.source?.specific === false;
+        if (manual && !vague) return emit({ type: "done", manual });
+        if (vague) return emit({ type: "failed" });
         // Web search can't see picture-only manuals (LEGO); reading the PDF itself can.
         const pdf = source.kind === "search" ? parseJson(output)?.source?.url ?? "" : "";
         if (!/^https:\/\/\S+\.pdf$/i.test(pdf)) return emit({ type: "failed" });
