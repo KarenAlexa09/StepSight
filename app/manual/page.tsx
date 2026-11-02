@@ -17,10 +17,11 @@ import { clearManual, clearReplay, freshProgress, loadManual, saveManual, savePr
 import { getSettings } from "../../lib/settings";
 import type { Turn, Understood } from "../../lib/spark";
 
-type Phase = "understanding" | "ask" | "confirm" | "unclear" | "danger" | "reading" | "done";
+type Phase = "understanding" | "ask" | "confirm" | "unclear" | "danger" | "pages" | "reading" | "done";
 type Activity = { text: string; host?: string };
 
 const MAX_QUESTIONS = 4;
+const MAX_PAGES = 10;
 
 const isLink = (text: string) => /^https:\/\/\S+$/.test(text);
 const queryOf = (u: Understood) => (u.query.trim() || (u.mode === "fix" && u.issue ? `${u.name}: ${u.issue}` : u.name)).slice(0, 120);
@@ -57,6 +58,7 @@ export default function ManualPage() {
   const started = useRef(false);
   const retry = useRef<(() => void) | null>(null);
   const looked = useRef("");
+  const [pages, setPages] = useState<string[]>([]);
   const [lookingUp, setLookingUp] = useState(false);
 
   useEffect(() => {
@@ -183,7 +185,7 @@ export default function ManualPage() {
     read({ query: queryOf(u) }, u.mode, u.name, u.needsModel && (!u.model.trim() || /generic/i.test(u.model)));
   }
 
-  async function read(body: Record<string, string>, mode: Mode, name: string, generic = false, retried = false) {
+  async function read(body: Record<string, unknown>, mode: Mode, name: string, generic = false, retried = false) {
     setError("");
     setTarget({ name, mode, generic });
     retry.current = () => read(body, mode, name, generic);
@@ -211,7 +213,7 @@ export default function ManualPage() {
         }
       }
       if (last?.type === "done") {
-        const done: Manual = { ...last.manual, mode, pdf: body.url };
+        const done: Manual = { ...last.manual, mode, pdf: typeof body.url === "string" ? body.url : undefined };
         setManual(done);
         setPhase("done");
         saveManual(done);
@@ -220,8 +222,9 @@ export default function ManualPage() {
         prepareAnimations(done);
         return;
       }
-      if (!retried) return read(body, mode, name, generic, true);
-      throw new Error(tr("Timber couldn't find good instructions. Try another name or link."));
+      // Retry only a cut-off stream; "failed" means the search really found nothing.
+      if (!retried && last?.type !== "failed") return read(body, mode, name, generic, true);
+      throw new Error(tr(body.images ? "Timber couldn't read steps in those photos. Try sharper photos of every page." : "Timber couldn't find this manual online. If it came with a paper one, show it to me."));
     } catch (e) {
       if (!cancelled.current) fail(e);
     }
@@ -268,6 +271,17 @@ export default function ManualPage() {
       </svg>
     </Link>
   );
+
+  // No manual online: photos of the paper booklet, one per page, read in order.
+  async function addPages(files: FileList | null) {
+    if (!files) return;
+    try {
+      const shots = await Promise.all([...files].map((file) => fileToShot(file, 1200, 0.7)));
+      setPages((p) => [...p, ...shots.map((s) => s.image)].slice(0, MAX_PAGES));
+    } catch {
+      setError(t("Couldn't open that photo."));
+    }
+  }
 
   const photoChip = (
     <label className="c-chip">
@@ -472,8 +486,13 @@ export default function ManualPage() {
             {error || (intent.image ? t("Get a bit closer and add more light, or just tell me what it is.") : t("Tell me which object it is and what you want to do with it."))}
           </p>
           <div className="c-stage">{busy && listening}</div>
+          {error && target && (
+            <button type="button" className="c-btn" onClick={() => { setPages([]); setError(""); setPhase("pages"); }} disabled={busy}>
+              {t("Photograph the paper manual")}
+            </button>
+          )}
           {error && retry.current && (
-            <button type="button" className="c-btn" onClick={retry.current} disabled={busy}>
+            <button type="button" className={target ? "c-btn ghost" : "c-btn"} onClick={retry.current} disabled={busy}>
               {t("Try again")}
             </button>
           )}
@@ -486,6 +505,44 @@ export default function ManualPage() {
               {t("Type it")}
             </Link>
           </div>
+        </>
+      )}
+
+      {phase === "pages" && target && (
+        <>
+          <header className="c-top">
+            <button type="button" className="c-link" onClick={() => setPhase("unclear")}>
+              {t("Back")}
+            </button>
+          </header>
+          <div className="c-ask">
+            <Timber pose="point" size={72} />
+            <h1 className="c-h1">{t("Show me the paper manual")}</h1>
+          </div>
+          <p className="c-muted">{t("One photo per page, in order, flat and well lit. Up to {n} pages.", { n: MAX_PAGES })}</p>
+          <ol className="c-pages">
+            {pages.map((src, i) => (
+              <li key={i}>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={src} alt={t("Page {n}", { n: i + 1 })} />
+                <button type="button" aria-label={t("Remove page {n}", { n: i + 1 })} onClick={() => setPages((p) => p.filter((_, j) => j !== i))}>
+                  ×
+                </button>
+              </li>
+            ))}
+          </ol>
+          <div className="c-stage" />
+          {pages.length < MAX_PAGES && (
+            <label className={pages.length ? "c-btn ghost" : "c-btn"}>
+              {pages.length ? t("Add page {n}", { n: pages.length + 1 }) : t("Take a photo of page 1")}
+              <input type="file" accept="image/*" multiple onChange={(e) => { addPages(e.target.files); e.target.value = ""; }} />
+            </label>
+          )}
+          {pages.length > 0 && (
+            <button type="button" className="c-btn" onClick={() => read({ images: pages }, target.mode, target.name)}>
+              {t(pages.length === 1 ? "Read 1 page" : "Read {n} pages", { n: pages.length })}
+            </button>
+          )}
         </>
       )}
 
