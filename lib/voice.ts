@@ -1,5 +1,6 @@
-// Fish Audio library voice for Timber: soft, neutral and cheerful.
-const TIMBER_VOICE = "c333c7de8a71474bb6091f65be538734";
+// Fish Audio library voices for Timber, one native speaker per language: an English voice reading Spanish
+// came out with a foreign accent. Pick by ear with scripts/smoke/voice-lab.mjs.
+const TIMBER_VOICE = { en: "c333c7de8a71474bb6091f65be538734", es: "692eb1e1023242219dc8caae8c56fb12" };
 
 export async function transcribe(wav: Blob): Promise<string> {
   const form = new FormData();
@@ -20,7 +21,7 @@ export async function transcribe(wav: Blob): Promise<string> {
   return data.transcript ?? "";
 }
 
-export async function speak(text: string): Promise<Response> {
+export async function speak(text: string, lang: "en" | "es" = "en"): Promise<Response> {
   const res = await fetch("https://api.fish.audio/v1/tts", {
     method: "POST",
     headers: {
@@ -28,7 +29,8 @@ export async function speak(text: string): Promise<Response> {
       "Content-Type": "application/json",
       model: "s2.1-pro-free",
     },
-    body: JSON.stringify({ text, format: "mp3", reference_id: TIMBER_VOICE, temperature: 0.4, top_p: 0.5 }),
+    // Low temperature keeps the tone the same from line to line; language only guides how numbers like "2x4" are read.
+    body: JSON.stringify({ text, format: "mp3", reference_id: TIMBER_VOICE[lang], language: lang, temperature: 0.3, top_p: 0.5 }),
   });
   if (!res.ok || !res.body) throw new Error(`Fish ${res.status}: ${await res.text()}`);
   return res;

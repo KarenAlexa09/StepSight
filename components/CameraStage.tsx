@@ -230,7 +230,7 @@ export default function CameraStage({
         wantsDest ? segment(shot, motion.to).catch(() => null) : null,
       ]);
       if (data.matches.length === 0) {
-        onStatus(named() ? t("No {target} here", { target }) : t("I can't see that part here"));
+        onStatus(named() ? t("No {target} here. Get closer or turn it toward the camera.", { target }) : t("I can't see that part here. Get closer or turn it toward the camera."));
         return 0;
       }
       const next: Snapshot = {

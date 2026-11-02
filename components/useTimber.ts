@@ -10,14 +10,16 @@ const lines = new Map<string, Promise<string | null>>();
 
 // Each line costs ~2 s of Fish TTS; cached so a repeated or preloaded line plays at once.
 function voice(text: string) {
-  if (!lines.has(text)) {
-    const url = fetch("/api/speak", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text }) })
+  const { lang } = getSettings();
+  const key = `${lang}:${text}`;
+  if (!lines.has(key)) {
+    const url = fetch("/api/speak", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text, lang }) })
       .then(async (res) => (res.ok ? URL.createObjectURL(await res.blob()) : null))
       .catch(() => null);
-    url.then((u) => u || lines.delete(text)); // don't keep failures
-    lines.set(text, url);
+    url.then((u) => u || lines.delete(key)); // don't keep failures
+    lines.set(key, url);
   }
-  return lines.get(text)!;
+  return lines.get(key)!;
 }
 
 // Loads the voice of every step one after another, so each step speaks the moment you reach it.
@@ -36,7 +38,7 @@ function unlock() {
   player.play().catch(() => {});
 }
 
-export type StepContext = { instruction: string; parts: string[] };
+export type StepContext = { instruction: string; parts: string[]; number?: number; total?: number };
 
 export function useTimber(onIntent: (intent: Intent) => void, step?: StepContext) {
   const turn = useRef(0);

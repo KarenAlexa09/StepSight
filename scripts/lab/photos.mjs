@@ -11,6 +11,7 @@ const PHOTOS = {
   "washer-error": "Close-up of a front-loading washing machine's control panel; the small digital display clearly shows the error code E21. No brand logo visible.",
   "bike-chain": "Close-up of a bicycle's front gears where the chain has fallen off the chainring and hangs loose. A garage floor in the background.",
   "rubber-duck": "A plain yellow rubber bath duck sitting on the edge of a white bathtub, no logos and no text.",
+  "watch-side": "Side view of a smartwatch with a gold aluminum case and a light pink sport band, held in a hand over a pink fleece blanket; the round digital crown and the flat oval side button below it are visible on the right edge. No logos.",
   "headphones-label":
     "Close-up of the inside of a black over-ear headphone headband, with a small printed label that clearly reads: SONY  Model: WH-1000XM4.",
 };
