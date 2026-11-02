@@ -47,8 +47,10 @@ export function useTimber(onIntent: (intent: Intent) => void, step?: StepContext
   const [reply, setReply] = useState("");
 
   useEffect(() => {
-    document.addEventListener("pointerdown", unlock, { once: true });
-    return () => document.removeEventListener("pointerdown", unlock);
+    // touchend/click: on iPhone a touch pointerdown doesn't count as the tap that unlocks audio.
+    const events = ["pointerdown", "touchend", "click"];
+    events.forEach((e) => document.addEventListener(e, unlock, { once: true }));
+    return () => events.forEach((e) => document.removeEventListener(e, unlock));
   }, []);
 
   async function say(text: string) {
