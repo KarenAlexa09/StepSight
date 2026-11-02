@@ -1,7 +1,7 @@
 import type { Lang, Manual, Part, Step } from "./manual";
 
 // Manuals that aren't online, read by hand from the paper booklet so the demo set always gets the right steps.
-// Each step shows its panel from the booklet (public/manuals/<set>/<n>.jpg).
+// Step drawings are drawn from the booklet panels by scripts/make-roller-strips.mjs.
 
 type Text = { instruction: string; check: string };
 
@@ -76,6 +76,6 @@ export function knownManual(query: string, lang: Lang): Manual | null {
     prep: [],
     hazard: "none",
     source: { name: "paper manual", url: "", official: true, specific: true },
-    panels: steps.map((_, i) => `/manuals/${known.set}/${i + 1}.jpg`),
+    strips: steps.map((_, i) => `/manuals/${known.set}/anim-${i + 1}.jpg`),
   };
 }

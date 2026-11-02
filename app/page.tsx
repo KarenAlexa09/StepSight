@@ -169,7 +169,7 @@ export default function Home() {
           {manual && (
             <Link href={finished ? "/done" : "/build"} className="c-resume">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              {manual.demo ? <img src={`/demo/anim-${manual.demo}-1.jpg`} alt="" /> : <Timber pose="reading" size={52} move="none" />}
+              {manual.demo || manual.strips ? <img src={manual.strips?.[0] ?? `/demo/anim-${manual.demo}-1.jpg`} alt="" /> : <Timber pose="reading" size={52} move="none" />}
               <span className="c-grow">
                 <span className="kicker">{t(finished ? "CONTINUE · DONE" : "CONTINUE · STEP {n} OF {total}", { n: current, total: steps })}</span>
                 <span style={{ display: "block", fontSize: 16, fontWeight: 500, margin: "2px 0 8px" }}>{manual.title}</span>

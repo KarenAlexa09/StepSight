@@ -408,7 +408,7 @@ export default function BuildPage() {
         {showAnim && (
           <div className="c-anim">
             {anim.image ? (
-              <div className={`c-anim-frame${manual?.panels ? " panel" : ""}`}>
+              <div className="c-anim-frame">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={anim.image} alt={t("Animation of this step: {step}", { step: step.instruction })} />
               </div>

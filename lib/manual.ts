@@ -30,7 +30,7 @@ export type Manual = {
   demo?: "tower" | "lamp";
   hazard?: Hazard;
   source?: Origin;
-  panels?: string[];
+  strips?: string[];
 };
 export type Source = { kind: "pdf"; url: string } | { kind: "search"; query: string; mode: Mode } | { kind: "photos"; images: string[] };
 
@@ -161,7 +161,13 @@ type Item = { type: string; phase?: string; action?: { type: string; query?: str
 export async function readManual(source: Source, lang: Lang, emit: (event: ReadEvent) => void): Promise<void> {
   const known = source.kind === "search" && source.mode === "build" ? knownManual(source.query, lang) : null;
   if (known && source.kind === "search") {
-    emit({ type: "search", query: source.query });
+    // Same pace as a real search, so the demo looks like every other one.
+    const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
+    for (const query of [source.query, `${source.query} PDF`, `${source.query} step by step`]) {
+      emit({ type: "search", query });
+      await wait(3500);
+    }
+    await wait(4000);
     return emit({ type: "done", manual: known });
   }
   const content: unknown[] = [{ type: "input_text", text: prompt(source, lang) }];
