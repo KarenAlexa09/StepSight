@@ -3,7 +3,7 @@
 import { tr, useT } from "../lib/i18n";
 import { useEffect, useImperativeHandle, useRef, useState, type CSSProperties, type Ref } from "react";
 import { maskTransform, toShot, type Shot } from "../lib/image";
-import type { Motion } from "../lib/manual";
+import type { Motion, Part } from "../lib/manual";
 import type { Box, Match } from "../lib/sam";
 import { getSettings } from "../lib/settings";
 import { play } from "../lib/sound";
@@ -41,6 +41,7 @@ type Snapshot = Shot & {
 
 export type CameraHandle = {
   find: (target: string, motion?: Motion) => Promise<number>;
+  findParts: (parts: Part[]) => Promise<number>;
   capture: () => Shot | null;
   loadPhoto: (file: File) => void;
   replay: () => boolean;
@@ -81,10 +82,10 @@ function vectorOf(s: Snapshot): [number, number] | null {
 }
 
 function cropOf(s: Snapshot, vec: [number, number] | null) {
-  const first = s.matches[0].bounds;
   const [cx, cy] = center(s.matches[0]);
-  const xs = [first.left, first.right, ...(s.dest ? [s.dest.bounds.left, s.dest.bounds.right] : []), ...(vec ? [cx + vec[0]] : [])];
-  const ys = [first.top, first.bottom, ...(s.dest ? [s.dest.bounds.top, s.dest.bounds.bottom] : []), ...(vec ? [cy + vec[1]] : [])];
+  const boxes = (s.motion ? [s.matches[0]] : s.matches).map((m) => m.bounds);
+  const xs = [...boxes.flatMap((b) => [b.left, b.right]), ...(s.dest ? [s.dest.bounds.left, s.dest.bounds.right] : []), ...(vec ? [cx + vec[0]] : [])];
+  const ys = [...boxes.flatMap((b) => [b.top, b.bottom]), ...(s.dest ? [s.dest.bounds.top, s.dest.bounds.bottom] : []), ...(vec ? [cy + vec[1]] : [])];
   const left = Math.min(...xs);
   const right = Math.max(...xs);
   const top = Math.min(...ys);
@@ -255,6 +256,51 @@ export default function CameraStage({
     }
   }
 
+  // Every piece a step needs at once: Spark boxes them, SAM cuts them out.
+  async function findParts(all: Part[]) {
+    if (busy.current) return 0;
+    // Same limits as /api/segment: manuals read from a PDF can list more.
+    const parts = all.slice(0, 8).map((p) => ({ name: p.name.slice(0, 60), color: p.color.slice(0, 30), quantity: Math.min(Math.max(p.quantity, 1), 10), looks: p.looks?.slice(0, 160) }));
+    setSnapshot(null);
+    const shot = capture();
+    if (!shot) {
+      onStatus(photo ? t("Image isn't ready yet") : t("Camera isn't ready yet"));
+      return 0;
+    }
+    const reference = photo ? null : sample();
+    const total = parts.reduce((n, p) => n + p.quantity, 0);
+    busy.current = true;
+    setSearching(true);
+    setMoving(false);
+    onStatus(t("Looking for the {n} pieces…", { n: total }));
+    play("whoosh");
+    try {
+      const res = await fetch("/api/segment", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ image: shot.image, parts, width: shot.width, height: shot.height }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      const matches: Match[] = data.matches;
+      if (!matches.length) {
+        onStatus(t("I can't see those pieces here. Spread them out and get closer."));
+        return 0;
+      }
+      const next: Snapshot = { ...shot, matches, dest: null, motion: null, label: t("Grab these"), key: Date.now(), reference };
+      setSnapshot(next);
+      setMemo(next);
+      onStatus(t("Found {n} of {total} pieces", { n: matches.length, total }));
+      return matches.length;
+    } catch (error) {
+      onStatus(error instanceof Error && error.message ? t(error.message) : t("Something went wrong"));
+      return 0;
+    } finally {
+      busy.current = false;
+      setSearching(false);
+    }
+  }
+
   function loadPhoto(file: File) {
     setSnapshot(null);
     setPhoto(URL.createObjectURL(file));
@@ -267,7 +313,7 @@ export default function CameraStage({
     return true;
   }
 
-  useImperativeHandle(ref, () => ({ find, capture, loadPhoto, replay }));
+  useImperativeHandle(ref, () => ({ find, findParts, capture, loadPhoto, replay }));
 
   const hadSnapshot = useRef(false);
   useEffect(() => {
@@ -391,6 +437,7 @@ function FoundIt({ snapshot }: { snapshot: Snapshot }) {
   const unit = Math.max(width, height) / 100;
   const scale = Math.max(1, Math.min(2.2, (width * 0.6) / (right - left), (height * 0.45) / (bottom - top)));
   const vec = vectorOf(snapshot);
+  const many = matches.length > 1 && !motion;
   const connects = motion?.type === "connect" && !!dest && !!vec;
   const sx = width / 2;
   const sy = height * 0.42;
@@ -437,20 +484,25 @@ function FoundIt({ snapshot }: { snapshot: Snapshot }) {
         {matches.map((m) => (
           <path key={m.id} d={m.path} transform={maskTransform(m)} className="mask late" vectorEffect="non-scaling-stroke" />
         ))}
-        <rect
-          className="ring"
-          x={left - pad}
-          y={top - pad}
-          width={right - left + pad * 2}
-          height={bottom - top + pad * 2}
-          rx={pad}
-          vectorEffect="non-scaling-stroke"
-        />
-        <g className="reticle fx" style={{ transformOrigin: `${cx}px ${cy}px` }}>
-          {corners.map((d) => (
-            <path key={d} d={d} vectorEffect="non-scaling-stroke" />
-          ))}
-        </g>
+        {(many ? matches : [first]).map((m) => (
+          <rect
+            key={m.id}
+            className="ring"
+            x={m.bounds.left - pad}
+            y={m.bounds.top - pad}
+            width={m.bounds.right - m.bounds.left + pad * 2}
+            height={m.bounds.bottom - m.bounds.top + pad * 2}
+            rx={pad}
+            vectorEffect="non-scaling-stroke"
+          />
+        ))}
+        {!many && (
+          <g className="reticle fx" style={{ transformOrigin: `${cx}px ${cy}px` }}>
+            {corners.map((d) => (
+              <path key={d} d={d} vectorEffect="non-scaling-stroke" />
+            ))}
+          </g>
+        )}
         <rect className="spot fx" width={width} height={height} fill={`url(#spot-${key})`} />
         <g className="rays fx" style={{ transformOrigin: `${sx}px ${sy}px` }}>
           {Array.from({ length: 10 }, (_, i) => {
@@ -464,10 +516,12 @@ function FoundIt({ snapshot }: { snapshot: Snapshot }) {
             );
           })}
         </g>
-        <g className="lift fx" style={lift}>
-          <image href={image} width={width} height={height} clipPath={`url(#cut-${key})`} />
-          <path d={first.path} transform={maskTransform(first)} className="cut-outline" vectorEffect="non-scaling-stroke" />
-        </g>
+        {!many && (
+          <g className="lift fx" style={lift}>
+            <image href={image} width={width} height={height} clipPath={`url(#cut-${key})`} />
+            <path d={first.path} transform={maskTransform(first)} className="cut-outline" vectorEffect="non-scaling-stroke" />
+          </g>
+        )}
         {dest && (
           <g className="late-in">
             <DestBox match={dest} unit={unit} />

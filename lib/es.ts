@@ -397,4 +397,8 @@ export const ES: Record<string, string> = {
   "Read {n} pages": "Leer {n} páginas",
   "your photos": "tus fotos",
   "paper manual": "manual de papel",
+  "Looking for the {n} pieces…": "Buscando las {n} piezas…",
+  "I can't see those pieces here. Spread them out and get closer.": "No veo esas piezas aquí. Sepáralas un poco y acércate.",
+  "Grab these": "Coge estas",
+  "Found {n} of {total} pieces": "Encontré {n} de {total} piezas",
 };

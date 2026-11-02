@@ -13,6 +13,7 @@ export type Match = {
   bounds: Box;
   size: [width: number, height: number];
   path: string;
+  confidence?: number;
 };
 
 async function* sseEvents(body: ReadableStream<BufferSource>): AsyncGenerator<ResponsesEvent> {
@@ -58,13 +59,17 @@ export async function segment(image: string, prompt: string, minConfidence = MIN
   if (!res.ok || !res.body) throw new Error(`SAM ${res.status}: ${await res.text()}`);
 
   const result = await parseImageStream(sseEvents(res.body)).finalResult;
-  const sure = new Set(recordsOfKind(result.records, "box").filter((b) => (b.confidence ?? 1) >= minConfidence).map((b) => b.objectId));
-  return recordsOfKind(result.records, "mask").filter((record) => sure.has(record.objectId)).map((record) => ({
-    id: record.objectId,
-    bounds: record.bounds,
-    size: [record.mask.width, record.mask.height],
-    path: decodeMaskToSVGPath(record.mask),
-  }));
+  const confidence = new Map(recordsOfKind(result.records, "box").map((b) => [b.objectId, b.confidence ?? 1]));
+  return recordsOfKind(result.records, "mask")
+    .filter((record) => (confidence.get(record.objectId) ?? 0) >= minConfidence)
+    .map((record) => ({
+      id: record.objectId,
+      bounds: record.bounds,
+      size: [record.mask.width, record.mask.height] as [number, number],
+      path: decodeMaskToSVGPath(record.mask),
+      confidence: confidence.get(record.objectId),
+    }))
+    .sort((a, b) => (b.confidence ?? 0) - (a.confidence ?? 0));
 }
 
 export async function segmentBox(image: string, size: { width: number; height: number }, box: Box): Promise<Match[]> {

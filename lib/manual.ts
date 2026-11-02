@@ -4,7 +4,7 @@ const API = "https://api.meta.ai/v1/responses";
 export const MANUAL_KEY = "stepsight.manual";
 
 export type Mode = "build" | "fix";
-export type Part = { name: string; color: string; quantity: number };
+export type Part = { name: string; color: string; quantity: number; looks?: string };
 export type Kind = "do" | "find" | "verify";
 export type Motion = { type: "connect" | "move" | "remove" | "none"; direction: string; to: string };
 export type Step = {
