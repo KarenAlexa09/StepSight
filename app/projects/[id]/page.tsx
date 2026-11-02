@@ -106,7 +106,7 @@ function StepRow({ manual, index }: { manual: Manual; index: number }) {
       <span className="c-grow">
         {step.instruction}
         {image && (
-          <span className="c-anim-frame c-step-strip">
+          <span className={`c-anim-frame c-step-strip${manual.panels ? " panel" : ""}`}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={image} alt={t("Animation of this step: {step}", { step: step.instruction })} />
           </span>

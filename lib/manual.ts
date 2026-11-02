@@ -1,3 +1,5 @@
+import { knownManual } from "./known";
+
 const API = "https://api.meta.ai/v1/responses";
 export const MANUAL_KEY = "stepsight.manual";
 
@@ -28,6 +30,7 @@ export type Manual = {
   demo?: "tower" | "lamp";
   hazard?: Hazard;
   source?: Origin;
+  panels?: string[];
 };
 export type Source = { kind: "pdf"; url: string } | { kind: "search"; query: string; mode: Mode } | { kind: "photos"; images: string[] };
 
@@ -156,6 +159,11 @@ type Item = { type: string; phase?: string; action?: { type: string; query?: str
 
 // Streams instead of background polling: polling shows nothing until the end (about 30 s to 3 min).
 export async function readManual(source: Source, lang: Lang, emit: (event: ReadEvent) => void): Promise<void> {
+  const known = source.kind === "search" && source.mode === "build" ? knownManual(source.query, lang) : null;
+  if (known && source.kind === "search") {
+    emit({ type: "search", query: source.query });
+    return emit({ type: "done", manual: known });
+  }
   const content: unknown[] = [{ type: "input_text", text: prompt(source, lang) }];
   if (source.kind === "pdf") content.push({ type: "input_file", file_url: source.url });
   if (source.kind === "photos") content.push(...source.images.map((url) => ({ type: "input_image", image_url: url })));
