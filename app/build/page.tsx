@@ -90,6 +90,13 @@ export default function BuildPage() {
     return () => clearTimeout(id);
   }, [progress?.step]);
 
+  // The drawing plays over the live camera for a few loops, then tucks away; "Watch again" brings it back.
+  useEffect(() => {
+    if (!watching) return;
+    const id = setTimeout(() => setWatching(false), getSettings().slow ? 13500 : 8100);
+    return () => clearTimeout(id);
+  }, [watching, progress?.step]);
+
   useEffect(() => {
     const m = loadManual();
     if (!m) {
@@ -426,7 +433,7 @@ export default function BuildPage() {
           onStatus={setStatus}
         />
         {showAnim && (
-          <div className="c-anim">
+          <button type="button" className={`c-anim pip${manual?.strips ? " plain" : ""}`} onClick={() => setWatching(false)} aria-label={t("Hide the drawing")}>
             {anim.image ? (
               <div className={`c-anim-frame${manual?.strips ? " plain" : ""}`}>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -439,7 +446,7 @@ export default function BuildPage() {
                 <span className="c-dots" aria-hidden="true"><i /><i /><i /></span>
               </div>
             )}
-          </div>
+          </button>
         )}
         {phase === "checking" && <span className="scan" aria-hidden="true" />}
 
@@ -568,7 +575,7 @@ export default function BuildPage() {
                 </ul>
               )}
               <h1 className="c-h1">{step.instruction}</h1>
-              {!showAnim && phase === "work" && status && <p className="c-muted">{t(status)}</p>}
+              {phase === "work" && status && <p className="c-muted">{t(status)}</p>}
               {phase === "checking" && <p className="c-muted">{t("Timber is checking your build…")}</p>}
             </div>
             <Timber pose={phase === "checking" ? "think" : "point"} size={64} move="none" className="c-flip" />
@@ -586,25 +593,21 @@ export default function BuildPage() {
         <button
           type="button"
           className={`cta c-btn${phase === "correct" && !held ? " auto" : ""}`}
-          onClick={showAnim ? (kind === "verify" ? () => setWatching(false) : done) : phase === "correct" ? () => proceed(progress) : done}
+          onClick={phase === "correct" ? () => proceed(progress) : () => (setWatching(false), done())}
           disabled={phase === "checking" || timber.thinking}
         >
-          {!showAnim && phase !== "correct" && phase !== "checking" && kind === "verify" && <span className="c-shutter" aria-hidden="true" />}
-          {showAnim
-            ? kind === "verify"
-              ? t("Done, show the camera")
-              : t("Done")
-            : phase === "checking"
+          {phase !== "correct" && phase !== "checking" && kind === "verify" && <span className="c-shutter" aria-hidden="true" />}
+          {phase === "checking"
               ? t("Checking…")
               : phase === "correct"
                 ? progress.step >= total - 1
                   ? t("Finish")
                   : t("Next step →")
-                : phase === "fix"
-                  ? t("Check again")
-                  : kind === "verify"
-                    ? t("Check my step")
-                    : t("Done")}
+              : phase === "fix"
+                ? t("Check again")
+                : kind === "verify"
+                  ? t("Check my step")
+                  : t("Done")}
         </button>
         {phase !== "correct" && (
           <div className="c-sheet-links">

@@ -4,6 +4,7 @@ import { useT } from "../lib/i18n";
 import { useEffect, useRef, useState } from "react";
 import type { Manual, Step } from "../lib/manual";
 import { setSettings, useSettings, type Settings } from "../lib/settings";
+import { permissionHelp } from "../lib/permission";
 import AskBar from "./AskBar";
 import Timber from "./Timber";
 import type { useTimber } from "./useTimber";
@@ -127,6 +128,19 @@ export default function HelpSheet({
             </span>
           </button>
           {asking && <AskBar timber={timber} placeholder={t("Type your question")} />}
+
+          <button type="button" className="c-opt" onClick={() => permissionHelp("microphone")}>
+            <span className="c-opt-icon">
+              <svg {...icon} width="20" height="20">
+                <circle cx="12" cy="12" r="3" />
+                <path d="M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M5 19l2-2M17 7l2-2" />
+              </svg>
+            </span>
+            <span className="c-grow">
+              <b>{t("Microphone or camera not working?")}</b>
+              <small>{t("How to turn them on in this browser.")}</small>
+            </span>
+          </button>
         </div>
 
         <div className="c-toggles">

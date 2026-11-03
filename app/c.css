@@ -2003,3 +2003,84 @@ a.c-card {
 .c-cam:has(.c-anim-frame.plain) .c-pill {
   border: 2px solid var(--ink);
 }
+
+/* the step drawing as a small window over the live camera, so both show at once */
+.c-cam > .c-anim.pip {
+  inset: auto auto 30px 12px;
+  width: min(46%, 240px);
+  aspect-ratio: 1;
+  padding: 0;
+  border: 2px solid var(--ink);
+  border-radius: 18px;
+  background: #141414;
+  box-shadow: 4px 4px 0 var(--highlighter);
+  cursor: pointer;
+  animation: pip-in 0.35s ease-out both;
+}
+
+.c-cam > .c-anim.pip.plain {
+  background: #fff;
+}
+
+.c-anim.pip .c-anim-frame {
+  width: 100%;
+  border-radius: 0;
+}
+
+.c-anim.pip .c-anim-wait {
+  font-size: 12px;
+  padding: 8px;
+  text-align: center;
+}
+
+@keyframes pip-in {
+  from {
+    transform: scale(0.6);
+    transform-origin: bottom left;
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .c-cam > .c-anim.pip {
+    animation: none;
+  }
+}
+
+/* "turn on the microphone/camera" sheet */
+.c-perm-steps {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: perm;
+}
+
+.c-perm-steps li {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  font-size: 16px;
+  line-height: 1.4;
+  counter-increment: perm;
+}
+
+.c-perm-steps li::before {
+  content: counter(perm);
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--highlighter);
+  color: var(--ink);
+  font-weight: 700;
+  font-size: 14px;
+}
+
+.c-perm-links {
+  display: flex;
+  justify-content: space-between;
+}

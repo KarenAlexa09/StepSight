@@ -25,7 +25,7 @@ export async function POST(req: Request) {
     }
     const started = Date.now();
     try {
-      return Response.json({ picks: await pickMarked(image, marked, count, parts), ms: Date.now() - started });
+      return Response.json({ ...(await pickMarked(image, marked, count, parts)), ms: Date.now() - started });
     } catch (error) {
       console.error(error);
       return Response.json({ error: "Couldn't find the pieces. Try again." }, { status: 502 });

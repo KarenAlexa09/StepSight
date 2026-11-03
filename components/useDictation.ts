@@ -1,5 +1,6 @@
 "use client";
 
+import { isBlocked, permissionHelp } from "../lib/permission";
 import { useRef, useState } from "react";
 import { tr } from "../lib/i18n";
 import { play } from "../lib/sound";
@@ -49,8 +50,10 @@ export function useDictation(onText: (text: string) => void | Promise<void>, onE
     let stream: MediaStream;
     try {
       stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } });
-    } catch {
+    } catch (error) {
       context?.close();
+      // Once denied, browsers don't ask again: the sheet says where the switch is.
+      if (isBlocked(error)) permissionHelp("microphone");
       return onError(tr("Allow the microphone to talk to Timber"));
     }
     if (url && context) {

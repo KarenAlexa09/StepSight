@@ -109,16 +109,18 @@ export async function locateParts(image: string, size: { width: number; height: 
 }
 
 // Set-of-Mark: SAM found every piece and each one carries a number label; Spark only picks numbers, which it does far better than placing boxes.
-export async function pickMarked(image: string, marked: string, count: number, parts: Piece[]): Promise<{ part: number; label: number }[]> {
+// build: the label of what is already built (0 if nothing), so the camera can point each piece to it.
+export async function pickMarked(image: string, marked: string, count: number, parts: Piece[]): Promise<{ picks: { part: number; label: number }[]; build: number }> {
   const list = parts.map((p, i) => `${i + 1}. ${p.quantity}x ${p.color} ${p.name}${p.looks ? ` (${p.looks})` : ""}`).join("\n");
-  const { picks } = await ask<{ picks: { part: number; labels: number[] }[] }>(
+  const { picks, build } = await ask<{ picks: { part: number; labels: number[] }[]; build: number }>(
     [
       {
         type: "input_text",
         text:
           `Two photos of the same loose toy building pieces: the first is plain, the second has a white numbered label (1 to ${count}) on every piece. Pick the pieces for this building step:\n${list}\n` +
           "For each numbered part, give the label numbers of matching pieces, up to its quantity. Look at the plain photo to judge color, shape and size; use the labels only to name the piece. " +
-          "Never pick the same label twice, and leave a part out rather than guess.",
+          "Never pick the same label twice, and leave a part out rather than guess. " +
+          "build: the label of the model already put together in earlier steps (several pieces joined into one), which these pieces attach to; 0 if nothing is built yet. Never pick the build as a part.",
       },
       { type: "input_image", image_url: image },
       { type: "input_image", image_url: marked },
@@ -127,8 +129,9 @@ export async function pickMarked(image: string, marked: string, count: number, p
     {
       type: "object",
       additionalProperties: false,
-      required: ["picks"],
+      required: ["picks", "build"],
       properties: {
+        build: { type: "integer" },
         picks: {
           type: "array",
           items: {
@@ -142,8 +145,9 @@ export async function pickMarked(image: string, marked: string, count: number, p
     },
     "minimal",
   );
-  const used = new Set<number>();
-  return picks.flatMap(({ part, labels }) =>
+  const whole = build >= 1 && build <= count ? build : 0;
+  const used = new Set<number>([whole]);
+  const chosen = picks.flatMap(({ part, labels }) =>
     part >= 1 && part <= parts.length
       ? [...new Set(labels)]
           .filter((l) => l >= 1 && l <= count && !used.has(l))
@@ -151,6 +155,7 @@ export async function pickMarked(image: string, marked: string, count: number, p
           .map((label) => (used.add(label), { part: part - 1, label }))
       : [],
   );
+  return { picks: chosen, build: whole };
 }
 
 export type Turn = { role: "you" | "timber"; text: string };

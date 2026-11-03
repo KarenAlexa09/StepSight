@@ -4,6 +4,7 @@ import { tr, useT } from "../lib/i18n";
 import { useEffect, useImperativeHandle, useRef, useState, type CSSProperties, type Ref } from "react";
 import { drawMarks, maskTransform, toShot, type Shot } from "../lib/image";
 import type { Motion, Part } from "../lib/manual";
+import { isBlocked, permissionHelp } from "../lib/permission";
 import type { Box, Match } from "../lib/sam";
 import { getSettings } from "../lib/settings";
 import { play } from "../lib/sound";
@@ -163,7 +164,10 @@ export default function CameraStage({
         stream = s;
         if (videoRef.current) videoRef.current.srcObject = s;
       })
-      .catch(() => setCameraError(true));
+      .catch((error) => {
+        setCameraError(true);
+        if (isBlocked(error)) permissionHelp("camera");
+      });
     return () => stream?.getTracks().forEach((t) => t.stop());
   }, []);
 
@@ -288,9 +292,11 @@ export default function CameraStage({
       // Not bricks (screws, panels)? Spark boxes each part instead.
       const all: Match[] = (await post({ prompt: "lego piece" })).matches;
       let matches: Match[];
+      let build: Match | null = null;
       if (all.length >= 2) {
-        const { picks } = await post({ marked: await drawMarks(shot, all), count: all.length, parts });
-        matches = (picks as { part: number; label: number }[]).map(({ part, label }) => ({ ...all[label - 1], part }) as Match);
+        const data = await post({ marked: await drawMarks(shot, all), count: all.length, parts });
+        matches = (data.picks as { part: number; label: number }[]).map(({ part, label }) => ({ ...all[label - 1], part }) as Match);
+        build = data.build ? all[data.build - 1] : null;
       } else {
         matches = (await post({ parts, width: shot.width, height: shot.height })).matches;
       }
@@ -298,7 +304,8 @@ export default function CameraStage({
         onStatus(t("I can't see those pieces here. Spread them out and get closer."));
         return 0;
       }
-      const next: Snapshot = { ...shot, matches, dest: null, motion: null, label: t("Grab these"), key: Date.now(), reference };
+      // dest is what's already built: each piece gets an arrow to it.
+      const next: Snapshot = { ...shot, matches, dest: build, motion: null, label: build ? t("Grab these, they go here") : t("Grab these"), key: Date.now(), reference };
       setSnapshot(next);
       setMemo(next);
       onStatus(t("Found {n} of {total} pieces", { n: matches.length, total }));
@@ -499,7 +506,7 @@ function FoundIt({ snapshot }: { snapshot: Snapshot }) {
           <>
             <mask id={`holes-${key}`}>
               <rect width={width} height={height} fill="white" />
-              {matches.map((m) => (
+              {[...matches, ...(dest ? [dest] : [])].map((m) => (
                 <path key={m.id} d={m.path} transform={maskTransform(m)} fill="black" />
               ))}
             </mask>
@@ -555,6 +562,13 @@ function FoundIt({ snapshot }: { snapshot: Snapshot }) {
             <DestBox match={dest} unit={unit} />
           </g>
         )}
+        {many &&
+          dest &&
+          matches.map((m) => (
+            <g key={`to-${m.id}`} className="late-in">
+              <Arrow from={center(m)} vec={[center(dest)[0] - center(m)[0], center(dest)[1] - center(m)[1]]} unit={unit} src={m.bounds} dst={dest.bounds} />
+            </g>
+          ))}
         {vec && (
           <>
             <g className="late-in">
