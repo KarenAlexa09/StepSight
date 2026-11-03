@@ -116,7 +116,7 @@ export default function BuildPage() {
   function show(t = target) {
     play("boop");
     // A step with several pieces points them all out; a single piece gets the arrow to where it goes.
-    if (step && t === targetOf(step) && step.parts.reduce((n, p) => n + p.quantity, 0) > 1) return void camera.current?.findParts(step.parts);
+    if (step && t === targetOf(step) && step.parts.reduce((n, p) => n + p.quantity, 0) > 1) return void camera.current?.findParts(step.parts, (progress?.step ?? 0) > 0);
     camera.current?.find(t, step && t === targetOf(step) ? step.motion : undefined);
   }
 

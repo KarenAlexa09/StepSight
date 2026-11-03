@@ -12,7 +12,7 @@ const isPiece = (p: Piece) => p && text(p.name, 60) && text(p.color, 30) && Numb
 export async function POST(req: Request) {
   const blocked = limited(req);
   if (blocked) return blocked;
-  const { image, prompt, parts, marked, count, width, height } = await req.json().catch(() => ({}));
+  const { image, prompt, parts, marked, count, built, width, height } = await req.json().catch(() => ({}));
 
   if (typeof image !== "string" || !IMAGE.test(image) || image.length > MAX_IMAGE_CHARS) {
     return Response.json({ error: "Send a JPEG, PNG or WebP image under 6 MB." }, { status: 400 });
@@ -25,7 +25,7 @@ export async function POST(req: Request) {
     }
     const started = Date.now();
     try {
-      return Response.json({ ...(await pickMarked(image, marked, count, parts)), ms: Date.now() - started });
+      return Response.json({ ...(await pickMarked(image, marked, count, parts, built === true)), ms: Date.now() - started });
     } catch (error) {
       console.error(error);
       return Response.json({ error: "Couldn't find the pieces. Try again." }, { status: 502 });

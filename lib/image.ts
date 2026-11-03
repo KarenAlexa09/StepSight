@@ -93,3 +93,4 @@ export function drawMarks(shot: Shot, matches: Match[]): Promise<string> {
     img.src = shot.image;
   });
 }
+
