@@ -1945,3 +1945,61 @@ a.c-card {
   border: 0;
   border-radius: 0;
 }
+
+/* "You need": the step's pieces, as booklet photos when the manual has them */
+.c-need {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 8px 0 10px;
+  padding: 0;
+  list-style: none;
+}
+
+.c-need li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px 4px 4px;
+  border: 1.5px solid var(--line);
+  border-radius: 12px;
+  background: #fff;
+  font-size: 13px;
+}
+
+.c-need img {
+  width: 44px;
+  height: 44px;
+  border-radius: 8px;
+  object-fit: contain;
+  mix-blend-mode: multiply;
+}
+
+.c-need span {
+  padding-left: 6px;
+  color: var(--pencil);
+}
+
+.c-need b {
+  font-size: 15px;
+}
+
+/* drawings made for a saved manual keep their real colors: inverted, black pieces read as white */
+.c-anim-frame.plain {
+  background: #fff;
+  border-radius: 18px;
+}
+
+.c-anim-frame.plain img {
+  filter: none;
+  mix-blend-mode: normal;
+}
+
+.c-need img {
+  width: 52px;
+  height: 52px;
+}
+
+.c-cam:has(.c-anim-frame.plain) .c-pill {
+  border: 2px solid var(--ink);
+}

@@ -24,7 +24,7 @@ import {
   XP_STEP,
   type Progress,
 } from "../../lib/progress";
-import { getSettings } from "../../lib/settings";
+import { getSettings, useSettings } from "../../lib/settings";
 import { play } from "../../lib/sound";
 import type { Check, Intent } from "../../lib/spark";
 
@@ -55,6 +55,7 @@ const HAZARD_TEXT = {
 
 export default function BuildPage() {
   const t = useT();
+  const { lang } = useSettings();
   const router = useRouter();
   const camera = useRef<CameraHandle>(null);
   const advanceTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
@@ -356,6 +357,8 @@ export default function BuildPage() {
   const hazardous = Boolean(manual.hazard && manual.hazard !== "none");
   const locked = phase === "checking" || phase === "correct" || timber.thinking;
   const showAnim = watching && phase === "work" && Boolean(anim.image);
+  // Part names stay in English for SAM: Spanish screens only show the ones with a photo.
+  const need = step.parts.filter((p) => p.image || lang === "en");
 
   if (manual.prep?.length && !progress.prepDone) {
     return (
@@ -425,7 +428,7 @@ export default function BuildPage() {
         {showAnim && (
           <div className="c-anim">
             {anim.image ? (
-              <div className="c-anim-frame">
+              <div className={`c-anim-frame${manual?.strips ? " plain" : ""}`}>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={anim.image} alt={t("Animation of this step: {step}", { step: step.instruction })} />
               </div>
@@ -553,6 +556,17 @@ export default function BuildPage() {
                 {kicker(step, manual.mode === "fix")}
                 {step.page > 0 && ` · p. ${step.page}`}
               </p>
+              {need.length > 0 && (
+                <ul className="c-need" aria-label={t("You need")}>
+                  {need.map((p, i) => (
+                    <li key={i}>
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      {p.image ? <img src={p.image} alt={partLabel(p)} /> : <span>{p.color} {p.name}</span>}
+                      <b>{p.quantity}×</b>
+                    </li>
+                  ))}
+                </ul>
+              )}
               <h1 className="c-h1">{step.instruction}</h1>
               {!showAnim && phase === "work" && status && <p className="c-muted">{t(status)}</p>}
               {phase === "checking" && <p className="c-muted">{t("Timber is checking your build…")}</p>}
