@@ -42,7 +42,7 @@ type Mini = { page: number; panel: number; target: string; to: string; parts: Pa
 const ROLLER: Mini[] = [
   {
     page: 1, panel: 1, target: "dark gray plate", to: "black corner plate", parts: [p(1, "dark gray", "2x3 plate"), p(2, "black", "corner plate")],
-    draw: "press the dark gray 2x3 plate onto two black L-shaped corner plates lying side by side",
+    draw: "press exactly ONE flat dark gray plate with 6 studs onto two black L-shaped plates lying side by side, so the single gray plate bridges both L plates; there is only one gray piece in all three panels, never two",
     en: { instruction: "Put the two black L plates side by side and press the gray plate on top to join them.", check: "The two black L plates are joined by a dark gray plate on top." },
     es: { instruction: "Pon las dos placas negras en L una junto a la otra y presiona encima la placa gris para unirlas.", check: "Las dos placas negras en L están unidas por una placa gris oscuro encima." },
   },
