@@ -110,7 +110,7 @@ export async function locateParts(image: string, size: { width: number; height: 
 
 // Set-of-Mark: SAM found every piece and each one carries a number label; Spark only picks numbers, which it does far better than placing boxes.
 // build: the label of what is already built (0 if nothing), so the camera can point each piece to it.
-export async function pickMarked(image: string, marked: string, count: number, parts: Piece[], built = false): Promise<{ picks: { part: number; label: number }[]; build: number }> {
+export async function pickMarked(image: string, marked: string, count: number, parts: Piece[], built = ""): Promise<{ picks: { part: number; label: number }[]; build: number }> {
   const list = parts.map((p, i) => `${i + 1}. ${p.quantity}x ${p.color} ${p.name}${p.looks ? ` (${p.looks})` : ""}`).join("\n");
   const { picks, build } = await ask<{ picks: { part: number; labels: number[] }[]; build: number }>(
     [
@@ -121,7 +121,7 @@ export async function pickMarked(image: string, marked: string, count: number, p
           "For each numbered part, give the label numbers of matching pieces, up to its quantity. Look at the plain photo to judge color, shape and size; use the labels only to name the piece. " +
           "Never pick the same label twice, and leave a part out rather than guess. " +
           (built
-            ? "build: the label of the model already put together in earlier steps, which these pieces attach to: several pieces clearly joined into one, never a single loose brick; 0 if you can't see one. Never pick the build as a part."
+            ? `build: the label of the model put together in earlier steps, which these pieces attach to. It is made of ${built} joined into one; a single loose brick is never the build. 0 if you can't see it. Never pick the build as a part.`
             : "build: always 0, nothing has been built yet."),
       },
       { type: "input_image", image_url: image },
