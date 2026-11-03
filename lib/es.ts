@@ -428,4 +428,9 @@ export const ES: Record<string, string> = {
   "Not now": "Ahora no",
   "Microphone or camera not working?": "¿No funciona el micrófono o la cámara?",
   "How to turn them on in this browser.": "Cómo activarlos en este navegador.",
+  "Tap the icon on the left of the address bar (a camera, a lock or two sliders).": "Toca el ícono a la izquierda de la dirección (una cámara, un candado o dos barritas).",
+  "Set {device} to Allow for this site.": "Pon {device} en Permitir para este sitio.",
+  "If it isn't there: open the iPhone Settings app, tap Chrome and turn on {device}.": "Si no aparece: abre Ajustes del iPhone, toca Chrome y activa {device}.",
+  "Reload this page and tap the mic again.": "Recarga esta página y vuelve a tocar el micrófono.",
+  "Browser says: {code}": "El navegador dice: {code}",
 };

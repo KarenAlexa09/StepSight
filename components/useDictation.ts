@@ -44,17 +44,29 @@ export function useDictation(onText: (text: string) => void | Promise<void>, onE
   async function toggle() {
     if (stopRef.current) return stopRef.current();
     const url = relayUrl();
+    // Ask for the mic first, still inside the tap: on iPhone a request made after other audio setup can fail without asking.
+    const asked = navigator.mediaDevices?.getUserMedia
+      ? navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } })
+      : Promise.reject(new Error("no media devices"));
     // iPhone Safari only lets audio run if it starts in the tap itself, before any await; later it stays muted.
-    const context = url ? new AudioContext({ sampleRate: RATE }) : null;
-    context?.resume();
+    let context: AudioContext | null = null;
+    try {
+      context = url ? new AudioContext({ sampleRate: RATE }) : null;
+      context?.resume();
+    } catch {
+      context = null; // no 16 kHz context here: record the clip instead of streaming
+    }
     let stream: MediaStream;
     try {
-      if (!navigator.mediaDevices?.getUserMedia) throw new Error("no media devices");
-      stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } });
+      // Some iPhone browsers refuse the extra audio options; plain audio still works.
+      stream = await asked.catch((error) => {
+        if (error instanceof DOMException && (error.name === "NotAllowedError" || error.name === "NotFoundError")) throw error;
+        return navigator.mediaDevices.getUserMedia({ audio: true });
+      });
     } catch (error) {
       context?.close();
       // Once denied, browsers don't ask again, and iPhone Chrome doesn't always say "denied": show where the switch is unless there's no mic at all.
-      if (!(error instanceof DOMException && error.name === "NotFoundError")) permissionHelp("microphone");
+      if (!(error instanceof DOMException && error.name === "NotFoundError")) permissionHelp("microphone", error instanceof Error ? error.name : String(error));
       return onError(tr("Allow the microphone to talk to Timber"));
     }
     if (url && context) {

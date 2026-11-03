@@ -166,7 +166,7 @@ export default function CameraStage({
       })
       .catch((error) => {
         setCameraError(true);
-        if (isBlocked(error)) permissionHelp("camera");
+        if (isBlocked(error)) permissionHelp("camera", error.name);
       });
     return () => stream?.getTracks().forEach((t) => t.stop());
   }, []);

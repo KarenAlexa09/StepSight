@@ -16,10 +16,10 @@ function browserOf(): Browser {
 // Web pages can't open the phone's settings, so the sheet spells out where the switch is for this browser.
 const STEPS: Record<Browser, string[]> = {
   "ios-chrome": [
-    "Open the Settings app on your iPhone.",
-    "Scroll down and tap Chrome.",
-    "Turn on {device}.",
-    "Come back here and tap Try again.",
+    "Tap the icon on the left of the address bar (a camera, a lock or two sliders).",
+    "Set {device} to Allow for this site.",
+    "If it isn't there: open the iPhone Settings app, tap Chrome and turn on {device}.",
+    "Reload this page and tap the mic again.",
   ],
   "ios-safari": [
     "Tap aA on the left of the address bar.",
@@ -45,12 +45,14 @@ export default function PermissionHelp() {
   const [device, setDevice] = useState<Device | null>(null);
   const [browser, setBrowser] = useState<Browser>("desktop");
   const [note, setNote] = useState("");
+  const [code, setCode] = useState("");
 
   useEffect(
     () =>
-      onPermissionHelp((d) => {
+      onPermissionHelp((d, reason) => {
         setBrowser(browserOf());
         setNote("");
+        setCode(reason ?? "");
         setDevice(d);
       }),
     [],
@@ -73,7 +75,8 @@ export default function PermissionHelp() {
       setDevice(null);
       // The camera only starts on load, so reload once it's allowed.
       if (device === "camera") location.reload();
-    } catch {
+    } catch (error) {
+      setCode(error instanceof Error ? error.name : "");
       setNote(t("Still blocked. Check the steps above, then try again or reload."));
     }
   }
@@ -103,6 +106,7 @@ export default function PermissionHelp() {
         <button type="button" className="c-btn" onClick={retry}>
           {t("Try again")}
         </button>
+        {code && <p className="c-perm-code">{t("Browser says: {code}", { code })}</p>}
         <div className="c-perm-links">
           <button type="button" className="c-link" onClick={() => location.reload()}>
             {t("Reload the page")}

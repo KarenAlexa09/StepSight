@@ -2084,3 +2084,9 @@ a.c-card {
   display: flex;
   justify-content: space-between;
 }
+
+.c-perm-code {
+  margin: 0;
+  font-size: 12px;
+  color: var(--pencil);
+}
