@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useT } from "../lib/i18n";
 import { onPermissionHelp, type Device } from "../lib/permission";
+import { audioMode } from "../lib/sound";
 import Timber from "./Timber";
 
 type Browser = "ios-chrome" | "ios-safari" | "android" | "desktop";
@@ -69,13 +70,16 @@ export default function PermissionHelp() {
   const name = device === "microphone" ? t("Microphone") : t("Camera");
 
   async function retry() {
+    if (device === "microphone") audioMode("play-and-record");
     try {
       const stream = await navigator.mediaDevices.getUserMedia(device === "microphone" ? { audio: true } : { video: true });
       stream.getTracks().forEach((track) => track.stop());
+      audioMode("playback");
       setDevice(null);
       // The camera only starts on load, so reload once it's allowed.
       if (device === "camera") location.reload();
     } catch (error) {
+      audioMode("playback");
       setCode(error instanceof Error ? error.name : "");
       setNote(t("Still blocked. Check the steps above, then try again or reload."));
     }

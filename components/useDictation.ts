@@ -1,6 +1,7 @@
 "use client";
 
 import { permissionHelp } from "../lib/permission";
+import { audioMode } from "../lib/sound";
 import { useRef, useState } from "react";
 import { tr } from "../lib/i18n";
 import { play } from "../lib/sound";
@@ -44,6 +45,8 @@ export function useDictation(onText: (text: string) => void | Promise<void>, onE
   async function toggle() {
     if (stopRef.current) return stopRef.current();
     const url = relayUrl();
+    // iPhone: the page's audio session must allow recording, or the mic request fails with InvalidStateError.
+    audioMode("play-and-record");
     // Ask for the mic first and once, inside the tap, with no extra options: iPhone browsers refuse a second
     // request made after an await (InvalidStateError: it no longer counts as the tap) and some reject audio options.
     const asked = navigator.mediaDevices?.getUserMedia ? navigator.mediaDevices.getUserMedia({ audio: true }) : Promise.reject(new Error("no media devices"));
@@ -60,6 +63,7 @@ export function useDictation(onText: (text: string) => void | Promise<void>, onE
       stream = await asked;
     } catch (error) {
       context?.close();
+      audioMode("playback");
       // Once denied, browsers don't ask again, and iPhone Chrome doesn't always say "denied": show where the switch is unless there's no mic at all.
       if (!(error instanceof DOMException && error.name === "NotFoundError")) permissionHelp("microphone", error instanceof Error ? error.name : String(error));
       return onError(tr("Allow the microphone to talk to Timber"));
@@ -96,6 +100,7 @@ export function useDictation(onText: (text: string) => void | Promise<void>, onE
       clearTimeout(pause);
       stopRef.current = null;
       stream.getTracks().forEach((t) => t.stop());
+      audioMode("playback");
       context.close();
       ws.close();
       setListening(false);
@@ -107,6 +112,7 @@ export function useDictation(onText: (text: string) => void | Promise<void>, onE
     const stop = () => {
       if (ws.readyState === WebSocket.OPEN) ws.send("end");
       stream.getTracks().forEach((t) => t.stop());
+      audioMode("playback");
       setTimeout(finish, 1500); // the final words arrive ~0.2 s after "end"
     };
     const limit = setTimeout(stop, Math.max(maxMs, 15000));
@@ -137,6 +143,7 @@ export function useDictation(onText: (text: string) => void | Promise<void>, onE
     rec.onstop = async () => {
       stopRef.current = null;
       stream.getTracks().forEach((t) => t.stop());
+      audioMode("playback");
       setListening(false);
       setTranscribing(true);
       try {

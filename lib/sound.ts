@@ -27,9 +27,14 @@ function audio() {
 
 // iPhone: Web Audio starts only inside a real tap (touchend or click; a touch pointerdown doesn't count), it is
 // suspended again after calls or other apps, and it follows the silent switch unless the session is "playback".
+// "playback" also blocks the mic (getUserMedia fails with InvalidStateError), so recording switches it with audioMode().
+export function audioMode(type: "playback" | "play-and-record") {
+  const session = typeof navigator === "undefined" ? undefined : (navigator as Navigator & { audioSession?: { type: string } }).audioSession;
+  if (session) session.type = type;
+}
+
 if (typeof window !== "undefined") {
-  const session = (navigator as Navigator & { audioSession?: { type: string } }).audioSession;
-  if (session) session.type = "playback";
+  audioMode("playback");
   for (const event of ["pointerdown", "touchend", "click"]) window.addEventListener(event, () => audio(), { passive: true });
 }
 
