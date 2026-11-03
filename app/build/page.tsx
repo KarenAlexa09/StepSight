@@ -553,8 +553,8 @@ export default function BuildPage() {
             <Timber pose="oops" size={76} />
             <div className="c-grow">
               <h1 className="c-h1">{t("Almost.")}</h1>
-              <p className="c-sheet-text">{check?.problem}</p>
-              {check?.fix && <p className="c-muted">{check.fix}</p>}
+              {/* One sentence: what to do (the same one Timber says), not what's wrong and then what to do. */}
+              <p className="c-sheet-text">{check?.fix || check?.problem}</p>
             </div>
             {piece && (
               <figure className={`c-piece${pieceIsStrip ? " strip" : ""}`}>
