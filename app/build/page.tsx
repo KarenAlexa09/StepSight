@@ -10,7 +10,7 @@ import HelpSheet from "../../components/HelpSheet";
 import SourceTag from "../../components/SourceTag";
 import Timber from "../../components/Timber";
 import { preloadVoice, useTimber } from "../../components/useTimber";
-import { prepareAnimations, useAnimation } from "../../lib/anim";
+import { prepareAnimations, preloadStrips, useAnimation } from "../../lib/anim";
 import { cropBox, thumb, type Shot } from "../../lib/image";
 import type { Manual, Part, Step } from "../../lib/manual";
 import {
@@ -103,6 +103,7 @@ export default function BuildPage() {
       setEmpty(true);
       return;
     }
+    preloadStrips(m);
     const p = loadProgress();
     p.step = Math.min(p.step, m.steps.length - 1);
     setManual(m);

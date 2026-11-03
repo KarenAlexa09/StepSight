@@ -83,7 +83,14 @@ async function draw(m: Manual, i: number) {
 }
 
 // Starts drawing the steps right after the plan is ready, so step 1 is usually done before you get there.
+// A saved manual ships its drawings and piece photos: fetch them all now so every step shows at once, even on a slow connection.
+export function preloadStrips(m: Manual) {
+  if (typeof window === "undefined" || !m.strips) return;
+  for (const src of [...m.strips, ...m.steps.flatMap((s) => s.parts.map((p) => p.image ?? ""))]) if (src) new Image().src = src;
+}
+
 export async function prepareAnimations(m: Manual) {
+  preloadStrips(m);
   if (m.demo || m.mode !== "fix") return; // demos ship their strips; a drawing of an assembly invents how the real product looks
   const keys = m.steps.slice(0, MAX_STEPS).map((_, i) => keyOf(m, i));
   const have = await Promise.all(keys.map(load));

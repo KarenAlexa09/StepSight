@@ -44,10 +44,9 @@ export function useDictation(onText: (text: string) => void | Promise<void>, onE
   async function toggle() {
     if (stopRef.current) return stopRef.current();
     const url = relayUrl();
-    // Ask for the mic first, still inside the tap: on iPhone a request made after other audio setup can fail without asking.
-    const asked = navigator.mediaDevices?.getUserMedia
-      ? navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } })
-      : Promise.reject(new Error("no media devices"));
+    // Ask for the mic first and once, inside the tap, with no extra options: iPhone browsers refuse a second
+    // request made after an await (InvalidStateError: it no longer counts as the tap) and some reject audio options.
+    const asked = navigator.mediaDevices?.getUserMedia ? navigator.mediaDevices.getUserMedia({ audio: true }) : Promise.reject(new Error("no media devices"));
     // iPhone Safari only lets audio run if it starts in the tap itself, before any await; later it stays muted.
     let context: AudioContext | null = null;
     try {
@@ -58,11 +57,7 @@ export function useDictation(onText: (text: string) => void | Promise<void>, onE
     }
     let stream: MediaStream;
     try {
-      // Some iPhone browsers refuse the extra audio options; plain audio still works.
-      stream = await asked.catch((error) => {
-        if (error instanceof DOMException && (error.name === "NotAllowedError" || error.name === "NotFoundError")) throw error;
-        return navigator.mediaDevices.getUserMedia({ audio: true });
-      });
+      stream = await asked;
     } catch (error) {
       context?.close();
       // Once denied, browsers don't ask again, and iPhone Chrome doesn't always say "denied": show where the switch is unless there's no mic at all.
