@@ -1,6 +1,6 @@
 "use client";
 
-import { isBlocked, permissionHelp } from "../lib/permission";
+import { permissionHelp } from "../lib/permission";
 import { useRef, useState } from "react";
 import { tr } from "../lib/i18n";
 import { play } from "../lib/sound";
@@ -49,11 +49,12 @@ export function useDictation(onText: (text: string) => void | Promise<void>, onE
     context?.resume();
     let stream: MediaStream;
     try {
+      if (!navigator.mediaDevices?.getUserMedia) throw new Error("no media devices");
       stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } });
     } catch (error) {
       context?.close();
-      // Once denied, browsers don't ask again: the sheet says where the switch is.
-      if (isBlocked(error)) permissionHelp("microphone");
+      // Once denied, browsers don't ask again, and iPhone Chrome doesn't always say "denied": show where the switch is unless there's no mic at all.
+      if (!(error instanceof DOMException && error.name === "NotFoundError")) permissionHelp("microphone");
       return onError(tr("Allow the microphone to talk to Timber"));
     }
     if (url && context) {

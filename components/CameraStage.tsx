@@ -42,7 +42,7 @@ type Snapshot = Shot & {
 
 export type CameraHandle = {
   find: (target: string, motion?: Motion) => Promise<number>;
-  findParts: (parts: Part[]) => Promise<number>;
+  findParts: (parts: Part[], built?: boolean) => Promise<number>;
   capture: () => Shot | null;
   loadPhoto: (file: File) => void;
   replay: () => boolean;
@@ -264,7 +264,8 @@ export default function CameraStage({
   }
 
   // Every piece a step needs at once: Spark boxes them, SAM cuts them out.
-  async function findParts(all: Part[]) {
+  // built: earlier steps are done, so there is a model the pieces attach to.
+  async function findParts(all: Part[], built = false) {
     if (busy.current) return 0;
     // Same limits as /api/segment: manuals read from a PDF can list more.
     const parts = all.slice(0, 8).map((p) => ({ name: p.name.slice(0, 60), color: p.color.slice(0, 30), quantity: Math.min(Math.max(p.quantity, 1), 10), looks: p.looks?.slice(0, 160) }));
@@ -294,7 +295,7 @@ export default function CameraStage({
       let matches: Match[];
       let build: Match | null = null;
       if (all.length >= 2) {
-        const data = await post({ marked: await drawMarks(shot, all), count: all.length, parts });
+        const data = await post({ marked: await drawMarks(shot, all), count: all.length, parts, built });
         matches = (data.picks as { part: number; label: number }[]).map(({ part, label }) => ({ ...all[label - 1], part }) as Match);
         build = data.build ? all[data.build - 1] : null;
       } else {

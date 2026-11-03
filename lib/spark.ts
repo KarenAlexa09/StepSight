@@ -110,7 +110,7 @@ export async function locateParts(image: string, size: { width: number; height: 
 
 // Set-of-Mark: SAM found every piece and each one carries a number label; Spark only picks numbers, which it does far better than placing boxes.
 // build: the label of what is already built (0 if nothing), so the camera can point each piece to it.
-export async function pickMarked(image: string, marked: string, count: number, parts: Piece[]): Promise<{ picks: { part: number; label: number }[]; build: number }> {
+export async function pickMarked(image: string, marked: string, count: number, parts: Piece[], built = false): Promise<{ picks: { part: number; label: number }[]; build: number }> {
   const list = parts.map((p, i) => `${i + 1}. ${p.quantity}x ${p.color} ${p.name}${p.looks ? ` (${p.looks})` : ""}`).join("\n");
   const { picks, build } = await ask<{ picks: { part: number; labels: number[] }[]; build: number }>(
     [
@@ -120,7 +120,9 @@ export async function pickMarked(image: string, marked: string, count: number, p
           `Two photos of the same loose toy building pieces: the first is plain, the second has a white numbered label (1 to ${count}) on every piece. Pick the pieces for this building step:\n${list}\n` +
           "For each numbered part, give the label numbers of matching pieces, up to its quantity. Look at the plain photo to judge color, shape and size; use the labels only to name the piece. " +
           "Never pick the same label twice, and leave a part out rather than guess. " +
-          "build: the label of the model already put together in earlier steps (several pieces joined into one), which these pieces attach to; 0 if nothing is built yet. Never pick the build as a part.",
+          (built
+            ? "build: the label of the model already put together in earlier steps, which these pieces attach to: several pieces clearly joined into one, never a single loose brick; 0 if you can't see one. Never pick the build as a part."
+            : "build: always 0, nothing has been built yet."),
       },
       { type: "input_image", image_url: image },
       { type: "input_image", image_url: marked },
@@ -145,7 +147,7 @@ export async function pickMarked(image: string, marked: string, count: number, p
     },
     "minimal",
   );
-  const whole = build >= 1 && build <= count ? build : 0;
+  const whole = built && build >= 1 && build <= count ? build : 0;
   const used = new Set<number>([whole]);
   const chosen = picks.flatMap(({ part, labels }) =>
     part >= 1 && part <= parts.length
@@ -256,6 +258,7 @@ export async function checkStep(
           `This is a photo of someone's build. The step was: "${step.instruction}" using ${step.parts.map((p, i) => `${i + 1}) ${p}`).join(", ") || "no new parts"}. ` +
           `When the step is done this should be visibly true: "${step.check}". ` +
           "Is the step done? Judge only what you can actually see. Say done only if the photo clearly shows it. " +
+          "Pieces pressed underneath others are mostly hidden once joined (only their edges show): that is normal, not missing. Ignore loose pieces lying around for later steps. " +
           "If the part is hidden, blurry or cut off, say not done and ask for another angle. " +
           "seen: one short sentence of what you can see that decides it. confidence: high, medium or low. " +
           "If not done, problem and fix are each one short, friendly sentence naming parts by color and size; otherwise both are empty. " +
