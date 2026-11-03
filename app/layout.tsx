@@ -6,6 +6,7 @@ import "./fx.css";
 import "./v3.css";
 import "./v4.css";
 import "./c.css";
+import PermissionHelp from "../components/PermissionHelp";
 import Shell from "../components/Shell";
 import TabBar from "../components/TabBar";
 
@@ -26,6 +27,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         {children}
         <TabBar />
         <Shell />
+        <PermissionHelp />
       </body>
     </html>
   );
