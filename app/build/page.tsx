@@ -112,12 +112,26 @@ export default function BuildPage() {
     preloadVoice(m.steps.slice(p.step).map((s) => s.instruction));
     setTarget(targetOf(m.steps[p.step]));
     if (m.mode === "fix") setStatus("Point the camera at what you're fixing");
+    // Read the step you land on (step 1 too); with a prep checklist, "Start" reads it instead.
+    if (!m.prep?.length || p.prepDone) setTimeout(() => timber.say(m.steps[p.step].instruction), 500);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [router]);
+
+  // The pieces earlier steps joined, e.g. "1 dark gray 2x3 plate, 2 black corner plate": what the model is made of now.
+  function builtSoFar() {
+    if (!manual || !progress) return "";
+    return manual.steps
+      .slice(0, progress.step)
+      .flatMap((s) => s.parts)
+      .slice(0, 12)
+      .map((p) => `${p.quantity} ${p.color} ${p.name}`)
+      .join(", ");
+  }
 
   function show(t = target) {
     play("boop");
     // A step with several pieces points them all out; a single piece gets the arrow to where it goes.
-    if (step && t === targetOf(step) && step.parts.reduce((n, p) => n + p.quantity, 0) > 1) return void camera.current?.findParts(step.parts, (progress?.step ?? 0) > 0);
+    if (step && t === targetOf(step) && step.parts.reduce((n, p) => n + p.quantity, 0) > 1) return void camera.current?.findParts(step.parts, builtSoFar());
     camera.current?.find(t, step && t === targetOf(step) ? step.motion : undefined);
   }
 
