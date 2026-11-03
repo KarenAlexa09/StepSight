@@ -7,14 +7,14 @@ import type { Lang, Manual, Part, Step } from "./manual";
 type Text = { instruction: string; check: string };
 
 // What each piece looks like on the table, so Show me can tell similar pieces apart.
-const LOOKS: Record<string, string> = {
+export const LOOKS: Record<string, string> = {
   "dark gray 2x3 plate": "flat dark gray plate with 6 studs",
   "black corner plate": "flat black L-shaped plate with 3 studs",
   "black 2x2 plate": "flat black square plate with 4 studs",
   "yellow 1x2 brick with hole": "yellow brick with 2 studs and a cross-shaped hole in its side",
   "black 1x1 bracket": "tiny black piece with one stud and a small plate sticking out sideways",
   "black 2x4 brick with pin": "the biggest black brick, with a white pin sticking out",
-  "black pin": "short thin black rod",
+  "black pin": "short black technic pin with ridges, about as long as a 1x2 brick",
   "black 1x4 plate": "long thin flat black plate with a row of holes",
   "yellow 1x1 brick": "small yellow cube-shaped brick",
   "yellow round bush": "small yellow ring with a cross-shaped hole",
@@ -25,13 +25,13 @@ const LOOKS: Record<string, string> = {
   "yellow quarter round tile": "tiny flat yellow quarter-circle piece",
   "clear 2x2 brick": "transparent clear brick",
   "yellow windscreen": "yellow frame with a window opening",
-  "yellow grille slope": "small yellow slope with grille lines",
+  "yellow grille slope": "small yellow 1x2 slope with dark grille lines on its sloped face",
   "yellow 1x2 tile": "smooth flat yellow 1x2 piece without studs",
-  "black long axle": "long thin black rod",
+  "black long axle": "thick black cross-shaped axle, as long as six studs",
   "black drum": "round black gear-like drum with holes",
   "black tire": "black rubber tire ring",
   "yellow rim": "yellow wheel rim",
-  "yellow 2x2 tile": "flat yellow square with one stud in the middle",
+  "yellow 2x2 tile": "flat yellow square tile, smooth on top except one stud in the middle",
 };
 
 const p = (quantity: number, color: string, name: string): Part => ({ name, color, quantity });
