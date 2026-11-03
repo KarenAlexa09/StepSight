@@ -402,4 +402,5 @@ export const ES: Record<string, string> = {
   "Grab these": "Coge estas",
   "Found {n} of {total} pieces": "Encontré {n} de {total} piezas",
   "how it goes": "así va",
+  "You need": "Necesitas",
 };
