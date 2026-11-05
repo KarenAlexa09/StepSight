@@ -70,8 +70,13 @@ Manuals are dense, generic and often in the wrong language. People stare at page
 
 ## Demo video
 
-<!-- Add the 3-minute demo video link here before submitting. -->
-3-minute walkthrough: building a brick set with a deliberate mistake caught, a lamp repair with its safety gate, and a request Timber refuses to guide.
+<p align="center">
+  <a href="https://youtu.be/gjVNj-w459I"><img src="docs/readme/video.jpg" width="640" alt="Watch the StepSight demo video"></a>
+</p>
+
+<p align="center"><a href="https://youtu.be/gjVNj-w459I"><b>▶ Watch the demo (2:31)</b></a></p>
+
+Building a toy road roller with a deliberate mistake caught, a lamp repair with its safety gate, a gas leak Timber refuses to guide, a product found from a photo, and how the four Meta models work together.
 
 The road roller built in the video (Miniso Mini Racing 21015) has no manual online. Its steps were read from the paper booklet and saved in [`lib/known.ts`](lib/known.ts), with step drawings made from the booklet panels, so the recording doesn't depend on a live search. For any other product, use **Photograph the paper manual**.
 
